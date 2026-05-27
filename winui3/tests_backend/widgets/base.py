@@ -1,9 +1,30 @@
 import pytest
 from pytest import approx
+from win32more.Microsoft.UI.Xaml.Media import SolidColorBrush
 
+from toga.colors import TRANSPARENT, rgb
 from toga.style.pack import JUSTIFY, LEFT
 
 from ..probe import BaseProbe
+
+
+def toga_color(brush):
+    if brush is None:
+        return None
+
+    try:
+        brush = brush.as_(SolidColorBrush)
+    except (AttributeError, OSError, TypeError):
+        pass
+
+    if not isinstance(brush, SolidColorBrush):
+        return None
+
+    color = brush.Color
+    if color.A == 0 and color.R == 0 and color.G == 0 and color.B == 0:
+        return TRANSPARENT
+
+    return rgb(color.R, color.G, color.B, color.A / 255)
 
 
 class SimpleProbe(BaseProbe):
@@ -32,14 +53,20 @@ class SimpleProbe(BaseProbe):
 
     @property
     def enabled(self):
-        return self.native.IsEnabled
+        if hasattr(self.native, "IsEnabled"):
+            return self.native.IsEnabled
+        return self.impl.get_enabled()
 
     @property
     def color(self):
+        if hasattr(self.native, "Foreground"):
+            return toga_color(self.native.Foreground)
         return None
 
     @property
     def background_color(self):
+        if hasattr(self.native, "Background"):
+            return toga_color(self.native.Background)
         return None
 
     @property

@@ -1,9 +1,12 @@
 import asyncio
+from math import isfinite
 
 from pytest import approx
 
+from .fonts import FontMixin
 
-class BaseProbe:
+
+class BaseProbe(FontMixin):
     fixed_height = None
 
     def __init__(self, native=None):
@@ -32,11 +35,19 @@ class BaseProbe:
 
     @property
     def width(self):
-        return round(self.native.ActualSize.X)
+        if hasattr(self.native, "Width") and isfinite(self.native.Width):
+            return round(self.native.Width)
+        if self.native.ActualSize.X:
+            return round(self.native.ActualSize.X)
+        return 0
 
     @property
     def height(self):
-        return round(self.native.ActualSize.Y)
+        if hasattr(self.native, "Height") and isfinite(self.native.Height):
+            return round(self.native.Height)
+        if self.native.ActualSize.Y:
+            return round(self.native.ActualSize.Y)
+        return 0
 
     def assert_width(self, min_width, max_width):
         assert min_width <= self.width <= max_width

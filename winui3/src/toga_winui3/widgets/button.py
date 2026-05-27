@@ -1,9 +1,14 @@
+from travertino.constants import TRANSPARENT
 from travertino.size import at_least
 from win32more.Microsoft.UI.Xaml.Controls import (
     Button as NativeButton,
+    Control,
     Symbol,
     SymbolIcon,
+    TextBlock,
 )
+
+from toga.handlers import WeakrefCallable
 
 from .base import Widget, WidgetStager
 
@@ -15,10 +20,16 @@ class Button(Widget):
         self._icon = None
         self._text = ""
 
-        self.native.Click += self.native_event_click
+        self.native.Click += WeakrefCallable(self.native_event_click)
 
     def native_event_click(self, sender, args):
         self.interface.on_press()
+
+    def set_background_color(self, color):
+        if color == TRANSPARENT:
+            self.native.ClearValue(Control.BackgroundProperty)
+        else:
+            super().set_background_color(color)
 
     def get_text(self):
         return self._text
@@ -30,8 +41,10 @@ class Button(Widget):
             return
 
         def creator(text=text):
+            text_block = TextBlock()
             # "\u200b" (ZERO WIDTH SPACE) instead of "" ensures correct button height.
-            return "\u200b" if text == "" else text
+            text_block.Text = "\u200b" if text == "" else text
+            return text_block
 
         self.content_creator = creator
 

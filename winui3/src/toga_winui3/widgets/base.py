@@ -1,12 +1,78 @@
+import warnings
 from abc import ABC, abstractmethod
+from math import nan
 
 from travertino.constants import TRANSPARENT
 from travertino.size import at_least
-from win32more.Microsoft.UI.Xaml import FocusState, Visibility
+from win32more.Microsoft.UI.Xaml import (
+    FocusState,
+    HorizontalAlignment,
+    TextAlignment,
+    Visibility,
+)
 from win32more.Microsoft.UI.Xaml.Controls import Canvas, Control, Panel
+from win32more.Windows.Foundation import Size
+
+from toga.style.pack import CENTER, JUSTIFY, LEFT, RIGHT
 
 from ..colors import native_brush
 from ..libs.misc import is_based_on
+
+DEFAULT_TAB_INDEX = 2**31 - 1
+UNCONSTRAINED_SIZE = Size(10000, 10000)
+
+
+def native_text_alignment(value):
+    return {
+        LEFT: TextAlignment.Left,
+        CENTER: TextAlignment.Center,
+        RIGHT: TextAlignment.Right,
+        JUSTIFY: TextAlignment.Left,
+    }[value]
+
+
+def native_horizontal_alignment(value):
+    return {
+        LEFT: HorizontalAlignment.Left,
+        CENTER: HorizontalAlignment.Center,
+        RIGHT: HorizontalAlignment.Right,
+        JUSTIFY: HorizontalAlignment.Left,
+    }[value]
+
+
+class SourceListenerCompatibility:
+    """Compatibility aliases for the pre-0.5.4 source listener API."""
+
+    SOURCE_SUPPORTS_PARENT = False
+
+    def _warn_source_alias(self, name):
+        warnings.warn(
+            f"The {name}() method is deprecated. Use source_{name}() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    def clear(self):
+        self._warn_source_alias("clear")
+        self.source_clear()
+
+    def insert(self, index, item, parent=None):
+        self._warn_source_alias("insert")
+        kwargs = {"index": index, "item": item}
+        if self.SOURCE_SUPPORTS_PARENT:
+            kwargs["parent"] = parent
+        self.source_insert(**kwargs)
+
+    def change(self, item):
+        self._warn_source_alias("change")
+        self.source_change(item=item)
+
+    def remove(self, index, item, parent=None):
+        self._warn_source_alias("remove")
+        kwargs = {"index": index, "item": item}
+        if self.SOURCE_SUPPORTS_PARENT:
+            kwargs["parent"] = parent
+        self.source_remove(**kwargs)
 
 
 class WidgetStager:
@@ -18,13 +84,13 @@ class WidgetStager:
 
     def refresh(self):
         self._widget_copy = type(self._widget)(None)
-        self._widget_copy.native.SizeChanged += self.native_event_size_changed
         self._widget.container.staging_area.add(self._widget_copy)
-        self._widget_copy.native.Content = self._widget.content_creator()
-
-    def native_event_size_changed(self, sender, args):
-        self.width = self._widget_copy.native.ActualSize.X
-        self.height = self._widget_copy.native.ActualSize.Y
+        self._widget_copy.set_native_content(self._widget.content_creator())
+        if hasattr(self._widget, "_font"):
+            self._widget_copy.set_font(self._widget._font)
+        desired_size = self._widget_copy.measure_unconstrained()
+        self.width = desired_size.Width
+        self.height = desired_size.Height
 
         self._widget.rehint()
         self._widget.container.staging_area.remove(self._widget_copy)
@@ -131,6 +197,12 @@ class Widget(ABC):
 
     def set_font(self, font):
         self._font = font
+        self._apply_font(self.native)
+        if content := getattr(self, "content", None):
+            self._apply_font(content)
+
+        if self._container and self._constraints:
+            self._constraints.refresh()
 
     def set_hidden(self, hidden):
         self.native.Visibility = Visibility.Collapsed if hidden else Visibility.Visible
@@ -150,12 +222,20 @@ class Widget(ABC):
 
     @property
     def has_focus(self):
-        return self.native.FocusState != FocusState.Unfocused
+        return self._focus_target.FocusState != FocusState.Unfocused
+
+    @property
+    def _focus_target(self):
+        return self.native
 
     def focus(self):
-        self.native.Focus(FocusState.Programmatic)
+        self._focus_target.Focus(FocusState.Programmatic)
 
     def get_tab_index(self):
+        if self.native.TabIndex == DEFAULT_TAB_INDEX and self._container:
+            if parent := self.interface.parent:
+                return parent.children.index(self.interface) + 1
+            return self._container.widgets._widgets.index(self) + 1
         return self.native.TabIndex
 
     def set_tab_index(self, tab_index):
@@ -163,6 +243,19 @@ class Widget(ABC):
 
     def refresh(self):
         self.rehint()
+
+    def measure_unconstrained(self, native=None):
+        native = self.native if native is None else native
+        width = native.Width
+        height = native.Height
+        try:
+            native.Width = nan
+            native.Height = nan
+            native.Measure(UNCONSTRAINED_SIZE)
+            return native.DesiredSize
+        finally:
+            native.Width = width
+            native.Height = height
 
     def rehint(self):
         self.interface.intrinsic.width = at_least(self.interface._MIN_WIDTH)
@@ -186,7 +279,23 @@ class Widget(ABC):
     def content_creator(self, creator):
         self._content_creator = creator
         self.content = creator()
-        self.native.Content = self.content
+        self.set_native_content(self.content)
 
         if self._container:
             self._constraints.refresh()
+
+    def set_native_content(self, content):
+        self.native.Content = content
+        if hasattr(self, "_font"):
+            self._apply_font(content)
+
+    def _apply_font(self, native):
+        font_impl = self._font._impl
+        for attr, value in [
+            ("FontFamily", font_impl.native_family),
+            ("FontSize", font_impl.native_size),
+            ("FontWeight", font_impl.native_weight),
+            ("FontStyle", font_impl.native_style),
+        ]:
+            if hasattr(native, attr):
+                setattr(native, attr, value)

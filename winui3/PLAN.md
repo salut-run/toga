@@ -8,8 +8,8 @@ This file is the persistent coordination state for the experimental `toga-winui3
 - Active Toga branch: `winui3-backend`.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
-- The latest completed WinUI slice builds out Button, Label, TextInput, Switch, font handling, staging measurement, color probes, and backend probes.
-- Active continuation target after Switch: Selection, chosen because Salut's Windows settings panes use multiple `toga.Selection` controls for log level, transport, model, and preload choices.
+- The latest completed WinUI slice builds out Button, Label, TextInput, Switch, Selection, font handling, staging measurement, color probes, and backend probes.
+- Active continuation target after Selection: Divider, chosen because Salut's Windows settings panes hit multiple `toga.Divider` controls immediately after the now-supported Selection/Switch/TextInput controls.
 
 ## Operating Rules
 
@@ -28,12 +28,13 @@ $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-no
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_textinput.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_label.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_switch.py --tb=short
+$env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_selection.py --tb=short
 ```
 
 Run this from `C:\Users\jezdez\Code\toga`:
 
 ```powershell
-uvx ruff check winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/switch.py
+uvx ruff check winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/widgets/selection.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/switch.py winui3/tests_backend/widgets/selection.py
 ```
 
 If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, look for stale `uvx`, `uv`, `briefcase`, or `python` processes whose command lines mention `testbed-winui3` or `Code\toga\testbed`, then kill only those stale testbed-related processes and retry.
@@ -45,6 +46,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_label.py` passed with `18 passed`.
 - `tests/widgets/test_textinput.py` passed with `38 passed, 1 skipped, 4 xfailed`; undo is skipped and edit-menu readonly cases xfail because the current backend does not expose platform edit menu behavior.
 - `tests/widgets/test_switch.py` passed with `15 passed`; implementation uses native WinUI `CheckBox`, not `ToggleSwitch`, because `ToggleSwitch` did not satisfy Toga desktop Switch measurement expectations around header text and font-driven width.
+- `tests/widgets/test_selection.py` passed with `21 passed, 1 xfailed`; text alignment is xfailed because native WinUI `ComboBox` text alignment is not exposed through the current backend/probe, matching similar limitations on other desktop backends.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -55,7 +57,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/label.py`: uses a native `Border` wrapper with an inner `TextBlock`, supports native background colors, foreground color reset, font application, enabled state, horizontal text alignment, zero-width-space height preservation for empty text, and content-based measurement.
 - `winui3/src/toga_winui3/widgets/textinput.py`: adds minimal but tested WinUI `TextBox` support for value, placeholder, readonly, text alignment, focus/change/confirm events, validation state, font-sensitive rehinting, and single-line behavior.
 - `winui3/src/toga_winui3/widgets/switch.py`: adds native `CheckBox` support for text, value, enabled, color/background, font-sensitive measurement, focus, press/change events, and WinRT boxed Boolean unboxing with `win32more.unbox_value`.
-- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput` and `Switch` in the backend entry points and factory exports.
+- `winui3/src/toga_winui3/widgets/selection.py`: adds native `ComboBox` support for list data source updates, duplicate display titles, programmatic and user selection changes, selected-item preservation across source inserts/removals, font-sensitive text measurement, and explicit Python-side title tracking because WinUI/win32more does not reliably expose `ComboBoxItem.Content` after insertion.
+- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput`, `Switch`, and `Selection` in the backend entry points and factory exports.
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
 - `winui3/tests_backend/widgets/base.py`: adds color/background probing for `SolidColorBrush`, including reporting fully transparent black as Toga `TRANSPARENT`, and falls back to backend `get_enabled()` for native elements without `IsEnabled`.
@@ -63,6 +66,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/label.py`: probes the `Border`/`TextBlock` split correctly for text, foreground color, font, and alignment.
 - `winui3/tests_backend/widgets/textinput.py`: adds TextInput probing for value, placeholder, readonly, alignment, typing, confirm key, selection, and cursor placement.
 - `winui3/tests_backend/widgets/switch.py`: probes `CheckBox` content text and font target, normalizes zero-width-space empty text, and simulates press via the backend value path because a native WinUI click is not currently injectable in the probe.
+- `winui3/tests_backend/widgets/selection.py`: probes `ComboBox` item titles through the backend title cache, selected title, GUI selection changes, content-resize behavior, and xfails text alignment.
 
 ## Known Gaps
 
@@ -73,10 +77,10 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Next Work
 
-1. Implement and test Selection using WinUI `ComboBox`; cover item list, selected item/value, enabled state, font-sensitive sizing, and change events.
-2. After Selection, prioritize Salut's remaining Windows settings blockers: Divider, NumberInput, PasswordInput, ProgressBar, and ScrollContainer, then WebView for chat.
+1. Implement and test Divider using a native WinUI line primitive (`Border` or equivalent) and verify horizontal/vertical layout behavior.
+2. After Divider, prioritize Salut's remaining Windows settings blockers: NumberInput, PasswordInput, ProgressBar, and ScrollContainer, then WebView for chat.
 3. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Add WinUI Switch support`.
+Milestone commit message for the latest completed slice: `Add WinUI Selection support`.

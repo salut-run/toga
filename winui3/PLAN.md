@@ -9,6 +9,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Button, Label, TextInput, font handling, staging measurement, color probes, and backend probes.
+- Active continuation target: pick the next Salut-relevant widget now that Button icon support is implemented.
 
 ## Operating Rules
 
@@ -39,7 +40,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 ## Verified So Far
 
 - Ruff passed across the touched WinUI backend files listed in the verification command.
-- `tests/widgets/test_button.py` passed with `14 passed, 1 skipped`; the skip is icon probing.
+- `tests/widgets/test_button.py` passed with `15 passed`.
 - `tests/widgets/test_label.py` passed with `18 passed`.
 - `tests/widgets/test_textinput.py` passed with `38 passed, 1 skipped, 4 xfailed`; undo is skipped and edit-menu readonly cases xfail because the current backend does not expose platform edit menu behavior.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
@@ -48,20 +49,19 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 - `winui3/src/toga_winui3/fonts.py`: maps Toga font families, size, weight, and style to WinUI `FontFamily`, `FontSize`, `FontWeight`, and `FontStyle`; custom registered fonts are still unsupported.
 - `winui3/src/toga_winui3/widgets/base.py`: stages content synchronously with `Measure(Size(10000, 10000))`, applies fonts to native controls and staged content, and keeps layout refreshing when font changes affect intrinsic size.
-- `winui3/src/toga_winui3/widgets/button.py`: uses `WeakrefCallable` for `Click`, uses `TextBlock` content so text measures correctly, treats empty text as zero-width space for height, and keeps Button-specific transparent background behavior as a native reset.
+- `winui3/src/toga_winui3/widgets/button.py`: uses `WeakrefCallable` for `Click`, uses `TextBlock` content so text measures correctly, renders icons as 32x32 native XAML `Image` content, treats empty text as zero-width space for height, and keeps Button-specific transparent background behavior as a native reset.
 - `winui3/src/toga_winui3/widgets/label.py`: uses a native `Border` wrapper with an inner `TextBlock`, supports native background colors, foreground color reset, font application, enabled state, horizontal text alignment, zero-width-space height preservation for empty text, and content-based measurement.
 - `winui3/src/toga_winui3/widgets/textinput.py`: adds minimal but tested WinUI `TextBox` support for value, placeholder, readonly, text alignment, focus/change/confirm events, validation state, font-sensitive rehinting, and single-line behavior.
 - `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput` in the backend entry points and factory exports.
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
 - `winui3/tests_backend/widgets/base.py`: adds color/background probing for `SolidColorBrush`, including reporting fully transparent black as Toga `TRANSPARENT`, and falls back to backend `get_enabled()` for native elements without `IsEnabled`.
-- `winui3/tests_backend/widgets/button.py`: probes Button `TextBlock` content and targets that content for font assertions.
+- `winui3/tests_backend/widgets/button.py`: probes Button `TextBlock` content, targets that content for font assertions, and verifies native icon image size.
 - `winui3/tests_backend/widgets/label.py`: probes the `Border`/`TextBlock` split correctly for text, foreground color, font, and alignment.
 - `winui3/tests_backend/widgets/textinput.py`: adds TextInput probing for value, placeholder, readonly, alignment, typing, confirm key, selection, and cursor placement.
 
 ## Known Gaps
 
-- Button icon support is still placeholder-only: `test_icon` skips because icon probing is not implemented and native icon content is still a generic `SymbolIcon`.
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
 - The backend still lacks most widgets beyond Box, Button, Label, and TextInput, and needs a parity roadmap for each widget before it becomes more than experimental.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
@@ -69,10 +69,9 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Next Work
 
-1. Replace the generic Button icon placeholder with native image/icon content and implement the icon probe.
-2. Pick the next Salut-relevant widget after Button icon support or explicitly record why another widget takes priority.
-3. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
+1. Pick the next Salut-relevant widget or explicitly record why another widget takes priority.
+2. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Build out WinUI primitive widgets`.
+Milestone commit message for the latest completed slice: `Render WinUI Button icons`.

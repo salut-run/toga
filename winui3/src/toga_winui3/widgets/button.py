@@ -3,10 +3,10 @@ from travertino.size import at_least
 from win32more.Microsoft.UI.Xaml.Controls import (
     Button as NativeButton,
     Control,
-    Symbol,
-    SymbolIcon,
+    Image as NativeImage,
     TextBlock,
 )
+from win32more.Microsoft.UI.Xaml.Media import Stretch
 
 from toga.handlers import WeakrefCallable
 
@@ -57,10 +57,13 @@ class Button(Widget):
         if icon is None:
             return
 
-        def creator():
-            symbol_icon = SymbolIcon()
-            symbol_icon.Symbol = Symbol.Document
-            return symbol_icon
+        def creator(icon=icon):
+            image = NativeImage()
+            image.Width = 32
+            image.Height = 32
+            image.Stretch = Stretch.Uniform
+            image.Source = icon._impl.bitmap_image(32)
+            return image
 
         self.content_creator = creator
 

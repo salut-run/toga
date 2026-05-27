@@ -4,6 +4,7 @@ from pathlib import Path
 from win32more import String
 from win32more.Microsoft.UI import IconId
 from win32more.Microsoft.UI.Interop import GetIconIdFromIcon
+from win32more.Microsoft.UI.Xaml.Media.Imaging import BitmapImage
 from win32more.Windows.Foundation import Uri
 from win32more.Windows.Win32.Graphics.GdiPlus import (
     GdipCreateBitmapFromFile,
@@ -33,7 +34,14 @@ class Icon:
 
     @property
     def uri(self) -> Uri:
-        return Uri(f"ms-appx:///{self.path.as_posix()}")
+        return Uri(self.path.resolve().as_uri())
+
+    def bitmap_image(self, size):
+        bitmap_image = BitmapImage()
+        bitmap_image.DecodePixelHeight = size
+        bitmap_image.DecodePixelWidth = size
+        bitmap_image.UriSource = self.uri
+        return bitmap_image
 
     @property
     def handle(self) -> HICON:

@@ -1,5 +1,9 @@
 import pytest
-from win32more.Microsoft.UI.Xaml.Controls import Button as NativeButton, TextBlock
+from win32more.Microsoft.UI.Xaml.Controls import (
+    Button as NativeButton,
+    Image as NativeImage,
+    TextBlock,
+)
 
 from .base import SimpleProbe
 
@@ -30,4 +34,9 @@ class ButtonProbe(SimpleProbe):
         assert self.native.Content.as_(TextBlock) is not None
 
     def assert_icon_size(self):
-        pytest.skip("WinUI 3 button icon probing is not implemented yet.")
+        try:
+            icon = self.native.Content.as_(NativeImage)
+        except (AttributeError, OSError, TypeError):
+            pytest.fail("Icon does not exist")
+
+        assert (icon.Width, icon.Height) == (32, 32)

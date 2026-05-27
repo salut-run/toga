@@ -26,7 +26,8 @@ from .widgets.label import Label
 
 # from .widgets.mapview import MapView
 # from .widgets.multilinetextinput import MultilineTextInput
-# from .widgets.numberinput import NumberInput
+from .widgets.numberinput import NumberInput
+
 # from .widgets.optioncontainer import OptionContainer
 # from .widgets.passwordinput import PasswordInput
 # from .widgets.progressbar import ProgressBar
@@ -82,7 +83,7 @@ __all__ = [
     "Label",
     # "MapView",
     # "MultilineTextInput",
-    # "NumberInput",
+    "NumberInput",
     # "OptionContainer",
     # "PasswordInput",
     # "ProgressBar",

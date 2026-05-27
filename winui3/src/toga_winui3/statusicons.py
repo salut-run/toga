@@ -1,9 +1,22 @@
 class StatusIcon:
-    pass
+    def __init__(self, interface):
+        self.interface = interface
+        self.native = None
+        self.icon = None
+
+    def set_icon(self, icon):
+        self.icon = icon
+
+    def create(self):
+        self.native = self
+
+    def remove(self):
+        self.native = None
 
 
 class SimpleStatusIcon(StatusIcon):
-    pass
+    def winui_click(self):
+        self.interface.on_press()
 
 
 class MenuStatusIcon(StatusIcon):
@@ -12,7 +25,6 @@ class MenuStatusIcon(StatusIcon):
 
 class StatusIconSet:
     def __init__(self, interface):
-        print("Not yet implemented on WinUI3 - StatusIconSet")
         self.interface = interface
         self._menu_items = {}
 

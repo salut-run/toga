@@ -2,7 +2,6 @@ import asyncio
 import sys
 import threading
 from asyncio import events
-from functools import partial
 
 from win32more.Microsoft.UI.Dispatching import DispatcherQueue, DispatcherQueueTimer
 from win32more.Windows.Foundation import TimeSpan
@@ -19,18 +18,22 @@ def native_app_launched(loop, native_app, args):
     loop.queue_timer.IsRepeating = False
     loop.queue_timer.Tick += loop.tick
 
-    loop.app.native_instance = native_app
+    loop.app.native_instance = native_app.current()
 
     loop.enqueue_tick()
 
 
 # Can't get coverage for app shutdown, so this handler must be no-cover.
-def native_app_exited(loop, winui3_app):  # pragma: no cover
+def native_app_exited(loop, native_app, *args):  # pragma: no cover
     """Perform cleanup that needs to occur when the app exits.
 
     This largely duplicates the "finally" behavior of the default Proactor
     run_forever implementation.
     """
+    loop.stop()
+    if hasattr(loop, "queue_timer"):
+        loop.queue_timer.Stop()
+
     if sys.version_info < (3, 13):
         # If we're stopping, we can do the "finally" handling from
         # the BaseEventLoop run_forever(). In Python 3.13.0a2, this
@@ -111,8 +114,14 @@ class WinUI3ProactorEventLoop(asyncio.ProactorEventLoop):
         self.queue_timer: DispatcherQueueTimer
         self._inner_loop = None
 
-        app.native.OnLaunched = partial(native_app_launched, self)
-        app.native.OnExited = partial(native_app_exited, self)
+        def on_launched(args):
+            native_app_launched(self, app.native, args)
+
+        def on_exited():
+            native_app_exited(self, app.native)
+
+        app.native.OnLaunched = staticmethod(on_launched)
+        app.native.OnExited = staticmethod(on_exited)
 
         # Start the native event loop.
         app.native.Start()
@@ -158,7 +167,9 @@ class WinUI3ProactorEventLoop(asyncio.ProactorEventLoop):
             # the app.  Determine the delay of the tick by checking if
             # there are events that can be processed sooner than 5ms, as
             # we do not want to hold them back from being processed.
-            if self._ready:
+            if self._stopping:
+                return
+            elif self._ready:
                 delay = 0
             elif self._scheduled:
                 first = self._scheduled[0]

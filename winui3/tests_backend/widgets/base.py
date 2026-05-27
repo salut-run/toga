@@ -1,0 +1,76 @@
+import pytest
+from pytest import approx
+
+from toga.style.pack import JUSTIFY, LEFT
+
+from ..probe import BaseProbe
+
+
+class SimpleProbe(BaseProbe):
+    invalid_size_while_hidden = False
+
+    def __init__(self, widget):
+        self.app = widget.app
+        self.widget = widget
+        self.impl = widget._impl
+        super().__init__(self.impl.native)
+        assert isinstance(self.native, self.native_class)
+
+    def assert_container(self, container):
+        assert self.widget._impl.container is container._impl.container
+        assert self.impl in container._impl.container.widgets._widgets
+
+    def assert_not_contained(self):
+        assert self.widget._impl.container is None
+
+    def assert_text_align(self, expected):
+        actual = self.text_align
+        if expected == JUSTIFY:
+            assert actual == LEFT
+        else:
+            assert actual == expected
+
+    @property
+    def enabled(self):
+        return self.native.IsEnabled
+
+    @property
+    def color(self):
+        return None
+
+    @property
+    def background_color(self):
+        return None
+
+    @property
+    def hidden(self):
+        return self.native.Visibility != 0
+
+    @property
+    def shrink_on_resize(self):
+        return True
+
+    def assert_layout(self, size, position):
+        assert self.widget._impl.container is not None
+        assert (self.width, self.height) == approx(size, abs=1)
+        assert (self.x, self.y) == approx(position, abs=1)
+
+    async def press(self):
+        self.native_event_click(None, None)
+
+    @property
+    def is_hidden(self):
+        return self.hidden
+
+    @property
+    def has_focus(self):
+        return self.impl.has_focus
+
+    async def undo(self):
+        pytest.skip("Undo not supported on this platform")
+
+    async def redo(self):
+        pytest.skip("Redo not supported on this platform")
+
+    def native_event_click(self, sender, args):
+        self.impl.native_event_click(sender, args)

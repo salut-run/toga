@@ -56,7 +56,7 @@ Source = "https://github.com/beeware/toga"
 Changelog = "https://toga.beeware.org/en/stable/background/project/releases"
 
 [project.entry-points."toga.backends"]
-windows = "toga_winui3"
+winui3 = "toga_winui3"
 
 [project.entry-points."toga_core.backend.toga_winui3"]
 App = "toga_winui3.app:App"
@@ -73,8 +73,8 @@ resources = "toga_winui3.resources"
 # Location = "toga_winui3.hardware.location:Location"
 
 # Status Icons
-# MenuStatusIcon = "toga_winui3.statusicons:MenuStatusIcon"
-# SimpleStatusIcon = "toga_winui3.statusicons:SimpleStatusIcon"
+MenuStatusIcon = "toga_winui3.statusicons:MenuStatusIcon"
+SimpleStatusIcon = "toga_winui3.statusicons:SimpleStatusIcon"
 StatusIconSet = "toga_winui3.statusicons:StatusIconSet"
 
 # Widgets

@@ -85,6 +85,7 @@ known-first-party = [
     "toga_textual",
     "toga_web",
     "toga_winforms",
+    "toga_winui3",
 ]
 
 [tool.rumdl]

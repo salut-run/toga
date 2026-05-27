@@ -23,7 +23,6 @@
 
 Eventually, the Toga project would like to provide support for:
 
-* WinUI (for Modern Windows look and feel)
 * tvOS (for AppleTV devices)
 * watchOS (for Apple Watch devices)
 

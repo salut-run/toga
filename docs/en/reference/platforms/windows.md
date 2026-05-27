@@ -1,6 +1,6 @@
 # Windows
 
-![image](../images/winforms.png){ width="300px" } <!-- TODO: Update alt text -->
+![Toga Windows backend example](../images/winforms.png){ width="300px" }
 
 The Toga backend for Windows is [`toga-winforms`](https://github.com/beeware/toga/tree/main/winforms).
 
@@ -31,3 +31,11 @@ $ python -m pip install toga-winforms
 The `toga-winforms` backend uses the [Windows Forms API](https://learn.microsoft.com/en-us/dotnet/desktop/winforms/?view=netdesktop-8.0).
 
 The native .NET APIs are accessed using [Python.NET](http://pythonnet.github.io).
+
+## Experimental WinUI 3 backend
+
+Toga also contains an experimental `toga-winui3` backend based on [WinUI 3](https://learn.microsoft.com/windows/apps/winui/winui3/) and the [Windows App SDK](https://learn.microsoft.com/windows/apps/windows-app-sdk/downloads). This backend is intended for early validation and is not installed by the `toga` metapackage.
+
+To use the experimental backend from a source checkout, install `travertino`, `toga-core`, and `toga-winui3` into the same environment, then set `TOGA_BACKEND=toga_winui3` when running the application. The backend currently requires Windows 10 version 1809 (build 17763) or later, Windows App Runtime 1.8, `win32more`, the Windows App SDK projection package, and the WinRT interop packages declared by `winui3/pyproject.toml`.
+
+The WinUI 3 backend currently exposes the full Toga widget entry-point surface and is exercised through the Toga Testbed, but remains experimental while packaging, Windows App SDK runtime requirements, and platform-specific limitations continue to be reviewed.

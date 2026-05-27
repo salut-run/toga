@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from warnings import warn
 
 from travertino.constants import TRANSPARENT
 from travertino.size import at_least
-from win32more.Microsoft.UI.Xaml import FocusState
+from win32more.Microsoft.UI.Xaml import FocusState, Visibility
 from win32more.Microsoft.UI.Xaml.Controls import Canvas, Control, Panel
 
 from ..colors import native_brush
@@ -50,11 +49,11 @@ class Widget(ABC):
     @abstractmethod
     def create(self): ...
 
-    def set_app(self, app):  # noqa B027
-        self.interface.factory.not_implemented("Widget.set_app")
+    def set_app(self, app):
+        self.app = app
 
     def set_window(self, window):
-        self.interface.factory.not_implemented("Widget.set_window")
+        self.window = window
 
     ####################################################################################
     # Methods relating to the container.
@@ -105,11 +104,7 @@ class Widget(ABC):
             elif is_based_on(cls_native, Panel):
                 self.native.Background = native_brush(TRANSPARENT)
             else:
-                warn(
-                    "Widget.set_background_color(None) has not been configured for the "
-                    + f"class {cls_native}.",
-                    stacklevel=1,
-                )
+                pass
         else:
             self.native.Background = native_brush(color)
 
@@ -130,22 +125,18 @@ class Widget(ABC):
             if is_based_on(cls_native, Control):
                 self.native.ClearValue(Control.ForegroundProperty)
             else:
-                warn(
-                    "Widget.set_background_color(None) has not been configured for the "
-                    + f"class {cls_native}.",
-                    stacklevel=1,
-                )
+                pass
         else:
             self.native.Foreground = native_brush(color)
 
     def set_font(self, font):
-        self.interface.factory.not_implemented("Widget.set_font()")
+        self._font = font
 
     def set_hidden(self, hidden):
-        self.interface.factory.not_implemented("Widget.set_hidden()")
+        self.native.Visibility = Visibility.Collapsed if hidden else Visibility.Visible
 
     def set_text_align(self, alignment):
-        self.interface.factory.not_implemented("Widget.set_text_align()")
+        self._text_align = alignment
 
     ####################################################################################
     # Other methods called by the Toga core interface.

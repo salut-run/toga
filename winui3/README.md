@@ -1,18 +1,18 @@
 # toga-winui3
 
-TODO: UPDATE THIS PAGE!
-
 <!-- rumdl-disable MD013 -->
-[![Python Versions](https://img.shields.io/pypi/pyversions/toga-winforms.svg)](https://pypi.python.org/pypi/toga-winforms)
-[![BSD-3-Clause License](https://img.shields.io/pypi/l/toga-winforms.svg)](https://github.com/beeware/toga-winforms/blob/main/LICENSE)
-[![Project status](https://img.shields.io/pypi/status/toga-winforms.svg)](https://pypi.python.org/pypi/toga-winforms)
+[![Python Versions](https://img.shields.io/pypi/pyversions/toga-winui3.svg)](https://pypi.python.org/pypi/toga-winui3)
+[![BSD-3-Clause License](https://img.shields.io/pypi/l/toga-winui3.svg)](https://github.com/beeware/toga/blob/main/winui3/LICENSE)
+[![Project status](https://img.shields.io/pypi/status/toga-winui3.svg)](https://pypi.python.org/pypi/toga-winui3)
 <!-- rumdl-enable MD013 -->
 
-A Microsoft WinRT backend for the [Toga widget toolkit](https://beeware.org/toga) utilizing the WinUI 3 API.
+An experimental Windows backend for the [Toga widget toolkit](https://beeware.org/toga) using the WinUI 3 API from the Windows App SDK.
 
 This package isn't much use by itself; it needs to be combined with [the core Toga library](https://pypi.python.org/pypi/toga-core).
 
-For platform requirements, see the [Windows platform documentation](https://toga.beeware.org/en/latest/reference/platforms/windows#prerequisites).
+This backend is not the default Windows backend. To use it in a development checkout, install `toga-core`, `travertino`, and `toga-winui3`, then set `TOGA_BACKEND=toga_winui3` before starting the app.
+
+For platform requirements, see the [Windows platform documentation](https://toga.beeware.org/en/latest/reference/platforms/windows#experimental-winui-3-backend).
 
 For more details, see [Toga's documentation](https://toga.beeware.org), or the [Toga project on GitHub](https://github.com/beeware/toga).
 

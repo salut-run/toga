@@ -19,7 +19,7 @@ BitmapPtr = POINTER(GpBitmap)
 
 
 class Icon:
-    EXTENSIONS = [".png", ".bmp"]
+    EXTENSIONS = [".png", ".bmp", ".ico"]
     SIZES = None
 
     def __init__(self, interface, path):
@@ -31,6 +31,8 @@ class Icon:
             self.path = Path(__file__).parent / "resources" / "toga.png"
         else:
             self.path = Path(path)
+
+        _ = self.handle
 
     @property
     def uri(self) -> Uri:

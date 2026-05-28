@@ -56,20 +56,24 @@ class AppProbe(BaseProbe, DialogsMixin):
         assert self.app._impl.native_instance is not None
 
     @property
+    def _app_path(self):
+        return Path.home() / f"AppData/Local/Tiberius Yak/{self.formal_name}"
+
+    @property
     def config_path(self):
-        return Path.home() / "AppData/Local/Tiberius Yak/Toga Testbed/Config"
+        return self._app_path / "Config"
 
     @property
     def data_path(self):
-        return Path.home() / "AppData/Local/Tiberius Yak/Toga Testbed/Data"
+        return self._app_path / "Data"
 
     @property
     def cache_path(self):
-        return Path.home() / "AppData/Local/Tiberius Yak/Toga Testbed/Cache"
+        return self._app_path / "Cache"
 
     @property
     def logs_path(self):
-        return Path.home() / "AppData/Local/Tiberius Yak/Toga Testbed/Logs"
+        return self._app_path / "Logs"
 
     @property
     def is_cursor_visible(self):

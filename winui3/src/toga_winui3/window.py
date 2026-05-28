@@ -67,15 +67,15 @@ class Window:
 
         self._set_restrictions()
         self.set_title(title)
+
+        # Create the window content and attach it.
+        self.create_content()
+        self.native.Content = self.content_native
         self.set_size(size)
 
         # Use default behavior for position, rather than Toga's re-implementation.
         if position:
             self.set_position(position)
-
-        # Create the window content and attach it.
-        self.create_content()
-        self.native.Content = self.content_native
 
     def create(self):
         self.native = App.app._impl.native_instance.CreateWindow()
@@ -83,8 +83,10 @@ class Window:
         self.native.AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode
         self._programmatic_close = False
         self._cached_window_size = None
+        self._requested_window_size = None
         self._restore_window_size = None
         self._fullscreen_reported_size = None
+        self._pending_show_size = None
         self._in_fullscreen_mode = False
         self._in_presentation_mode = False
         self._previous_state = WindowState.NORMAL
@@ -194,7 +196,8 @@ class Window:
                 WindowState.NORMAL,
                 WindowState.MINIMIZED,
             }:
-                self._cached_window_size = self._appwindow_size()
+                size = self._appwindow_size()
+                self._cached_window_size = size
                 self.interface.on_resize()
 
         if args.DidVisibilityChange:
@@ -326,17 +329,29 @@ class Window:
             self.interface.content.refresh()
 
         self.native.AppWindow.Show()
+        pending_show_size = None
+        if self._pending_show_size:
+            pending_show_size = Size(*self._pending_show_size)
+            self._pending_show_size = None
+            self.set_size(pending_show_size)
         self.interface.app._impl._current_window = self
         self.native.Activate()
         if self.interface.content is not None:
             bounds = self.native.Bounds
+            initial_layout_size = pending_show_size
             if bounds.Width and bounds.Height:
+                initial_layout_size = Size(bounds.Width, bounds.Height)
+
+            if initial_layout_size is not None:
+                self.container.native.Width = initial_layout_size.width
+                self.container.native.Height = initial_layout_size.height
+            elif bounds.Width and bounds.Height:
                 self.container.native.Width = bounds.Width
                 self.container.native.Height = bounds.Height
 
             self.interface.content.refresh()
 
-            if bounds.Width and bounds.Height:
+            if initial_layout_size is not None or (bounds.Width and bounds.Height):
                 self.container.native.Width = float("nan")
                 self.container.native.Height = float("nan")
 
@@ -362,7 +377,7 @@ class Window:
         width = max(size.width, min_width + extra_width)
         height = max(size.height, min_height + extra_height)
         if (width, height) != size:
-            self.set_size((width, height))
+            self.set_size((width, height), update_requested=False)
 
     def set_content(self, widget):
         """Sets the content of the window's container to be the given Toga widget."""
@@ -399,9 +414,14 @@ class Window:
             pixels_to_css(size.Height),
         )
 
-    def set_size(self, size: SizeT):
+    def set_size(self, size: SizeT, update_requested=True):
         """Sets the size of the window in effective pixels (CSS pixels)."""
-        self._cached_window_size = Size(*size)
+        size = Size(*size)
+        self._cached_window_size = size
+        if update_requested:
+            self._requested_window_size = size
+        if update_requested and not self.get_visible():
+            self._pending_show_size = size
         pixels_to_physical = self.get_current_screen().pixels_to_physical
 
         self.native.AppWindow.Resize(
@@ -623,7 +643,9 @@ class MainWindow(Window):
         return submenu
 
     def create_menus(self):
+        requested_window_size = self._requested_window_size
         self.menu_native = MenuBar()
+        self.menu_native.HorizontalAlignment = HorizontalAlignment.Left
         self.menu_native.VerticalAlignment = VerticalAlignment.Top
         Grid.SetRow(self.menu_native, 0)
         Grid.SetColumn(self.menu_native, 0)
@@ -644,6 +666,8 @@ class MainWindow(Window):
         self._create_window_management_menus(group_cache)
 
         self.content_native.Children.Append(self.menu_native)
+        if requested_window_size:
+            self.set_size(requested_window_size)
 
     def _add_window_menu_item(self, submenu, text, action, event_handler):
         item = MenuFlyoutItem()
@@ -698,6 +722,7 @@ class MainWindow(Window):
         self.minimize_current_window()
 
     def create_toolbar(self):
+        requested_window_size = self._requested_window_size
         if self.interface.toolbar:
             self.toolbar_commands = []
             if self.toolbar_native:
@@ -749,10 +774,13 @@ class MainWindow(Window):
                 if isinstance(cmd, Separator):
                     self.toolbar_commands.append(None)
                 primary_commands.Append(item)
+            if requested_window_size:
+                self.set_size(requested_window_size)
         elif self.toolbar_native:
             index = UInt32()
             if self.content_native.Children.IndexOf(self.toolbar_native, byref(index)):
                 self.content_native.Children.RemoveAt(index.value)
             self.toolbar_native = None
             self.toolbar_commands = []
-            return
+            if requested_window_size:
+                self.set_size(requested_window_size)

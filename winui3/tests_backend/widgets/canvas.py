@@ -12,6 +12,7 @@ class CanvasProbe(SimpleProbe):
     def reference_variant(self, reference):
         return {
             "attributes": "attributes-winui3",
+            "deprecated_tutorial": "deprecated_tutorial-winui3",
             "miter_join": "miter_join-winforms",
             "transforms_mid_path": "transforms_mid_path-winui3",
         }.get(reference, reference)

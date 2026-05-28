@@ -336,9 +336,13 @@ class Context:
 
         builder = CanvasPathBuilder.Create(self.resource_creator)
         if fill_rule == FillRule.EVENODD:
-            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Alternate)
+            builder.SetFilledRegionDetermination(
+                CanvasFilledRegionDetermination.Alternate
+            )
         else:
-            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Winding)
+            builder.SetFilledRegionDetermination(
+                CanvasFilledRegionDetermination.Winding
+            )
 
         for figure in self.figures:
             builder.BeginFigureAtCoords(*figure.start)
@@ -457,7 +461,6 @@ class Context:
             self.native.DrawImageToRect(bitmap, rect(x, y, width, height))
 
 
-
 class Canvas(Widget):
     def create(self):
         self.native = CanvasControl()
@@ -542,7 +545,7 @@ class Canvas(Widget):
         for row in range(height):
             for column in range(width):
                 offset = ((row * width) + column) * 4
-                b, g, r, a = bgra[offset:offset + 4]
+                b, g, r, a = bgra[offset : offset + 4]
                 if a:
                     r = min(255, round(r * 255 / a))
                     g = min(255, round(g * 255 / a))

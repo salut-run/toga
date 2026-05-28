@@ -121,6 +121,8 @@ class Window:
             presenter.Restore()
 
         if presentation:
+            if not hasattr(self, "_before_presentation_mode_screen"):
+                self._before_presentation_mode_screen = self.interface.screen
             self._set_window_chrome_visible(False)
             self._in_presentation_mode = True
         else:
@@ -130,6 +132,8 @@ class Window:
     def _exit_fullscreen_like_state(self):
         if self._in_presentation_mode:
             self._set_window_chrome_visible(True)
+            self.interface.screen = self._before_presentation_mode_screen
+            del self._before_presentation_mode_screen
 
         self._in_fullscreen_mode = False
         self._in_presentation_mode = False
@@ -251,6 +255,17 @@ class Window:
         self.native.AppWindow.Show()
         self.interface.app._impl._current_window = self
         self.native.Activate()
+        if self.interface.content is not None:
+            bounds = self.native.Bounds
+            if bounds.Width and bounds.Height:
+                self.container.native.Width = bounds.Width
+                self.container.native.Height = bounds.Height
+
+            self.interface.content.refresh()
+
+            if bounds.Width and bounds.Height:
+                self.container.native.Width = float("nan")
+                self.container.native.Height = float("nan")
 
     ####################################################################################
     # Window content and resources.
@@ -402,6 +417,13 @@ class Window:
         :state: A WindowState constant determined by NORMAL, MAXIMIZED, MINIMIZED or
             PRESENTATION. FULLSCREEN is not supported and will revert to MAXIMIZED.
         """
+        if state != WindowState.PRESENTATION and any(
+            window.state == WindowState.PRESENTATION
+            for window in self.interface.app.windows
+            if window != self.interface
+        ):
+            self.interface.app.exit_presentation_mode()
+
         current_state = self.get_window_state()
 
         if state == current_state:

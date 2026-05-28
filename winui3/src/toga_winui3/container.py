@@ -1,5 +1,5 @@
 from ctypes import byref
-from math import ceil
+from math import ceil, isfinite
 
 from win32more import UInt32
 from win32more.Microsoft.UI.Xaml import HorizontalAlignment, VerticalAlignment

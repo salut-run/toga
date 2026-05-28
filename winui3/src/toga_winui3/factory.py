@@ -42,7 +42,7 @@ from .widgets.textinput import TextInput
 
 # from .widgets.timeinput import TimeInput
 # from .widgets.tree import Tree
-# from .widgets.webview import WebView
+from .widgets.webview import WebView
 from .window import MainWindow, Window
 
 warnings.warn(
@@ -95,7 +95,7 @@ __all__ = [
     "TextInput",
     # "TimeInput",
     # "Tree",
-    # "WebView",
+    "WebView",
     # Windows
     "Window",
     "MainWindow",

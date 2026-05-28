@@ -8,8 +8,8 @@ This file is the persistent coordination state for the experimental `toga-winui3
 - Active Toga branch: `winui3-backend`.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
-- The latest completed WinUI slice builds out Button, Label, TextInput, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, font handling, staging measurement, color probes, and backend probes.
-- WebView feasibility was investigated first; because the installed WinUI bindings expose Core WebView2 controller APIs but no XAML `WebView2` control, WebView needs a dedicated host-window controller bridge before it can be a normal Toga widget. ActivityIndicator was completed next so backend parity kept moving while that bridge is scoped.
+- The latest completed WinUI slice builds out Button, Label, TextInput, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, WebView, font handling, staging measurement, color probes, and backend probes.
+- WebView was initially believed to require a Core WebView2 HWND controller bridge, but after the Briefcase dev environment was refreshed the installed `win32more.Microsoft.UI.Xaml.Controls` package exposed the XAML `WebView2` control. The backend now uses that native control directly.
 
 ## Operating Rules
 
@@ -35,12 +35,13 @@ $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-no
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_progressbar.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_scrollcontainer.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_activityindicator.py --tb=short
+$env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_webview.py --tb=short
 ```
 
 Run this from `C:\Users\jezdez\Code\toga`:
 
 ```powershell
-uvx ruff check winui3/src/toga_winui3/container.py winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/widgets/selection.py winui3/src/toga_winui3/widgets/divider.py winui3/src/toga_winui3/widgets/numberinput.py winui3/src/toga_winui3/widgets/passwordinput.py winui3/src/toga_winui3/widgets/progressbar.py winui3/src/toga_winui3/widgets/scrollcontainer.py winui3/src/toga_winui3/widgets/activityindicator.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/switch.py winui3/tests_backend/widgets/selection.py winui3/tests_backend/widgets/divider.py winui3/tests_backend/widgets/numberinput.py winui3/tests_backend/widgets/passwordinput.py winui3/tests_backend/widgets/progressbar.py winui3/tests_backend/widgets/scrollcontainer.py winui3/tests_backend/widgets/activityindicator.py
+uvx ruff check winui3/src/toga_winui3/container.py winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/widgets/selection.py winui3/src/toga_winui3/widgets/divider.py winui3/src/toga_winui3/widgets/numberinput.py winui3/src/toga_winui3/widgets/passwordinput.py winui3/src/toga_winui3/widgets/progressbar.py winui3/src/toga_winui3/widgets/scrollcontainer.py winui3/src/toga_winui3/widgets/activityindicator.py winui3/src/toga_winui3/widgets/webview.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/switch.py winui3/tests_backend/widgets/selection.py winui3/tests_backend/widgets/divider.py winui3/tests_backend/widgets/numberinput.py winui3/tests_backend/widgets/passwordinput.py winui3/tests_backend/widgets/progressbar.py winui3/tests_backend/widgets/scrollcontainer.py winui3/tests_backend/widgets/activityindicator.py winui3/tests_backend/widgets/webview.py
 ```
 
 If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, look for stale `uvx`, `uv`, `briefcase`, or `python` processes whose command lines mention `testbed-winui3` or `Code\toga\testbed`, then kill only those stale testbed-related processes and retry.
@@ -59,6 +60,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_progressbar.py` passed with `8 passed`.
 - `tests/widgets/test_scrollcontainer.py` passed with `18 passed`.
 - `tests/widgets/test_activityindicator.py` passed with `7 passed`.
+- `tests/widgets/test_webview.py` passed with `20 passed`.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -76,8 +78,9 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/progressbar.py`: adds native WinUI `ProgressBar` support for determinate values, maximum changes, backend-tracked running state, and indeterminate animation through native `IsIndeterminate`.
 - `winui3/src/toga_winui3/widgets/scrollcontainer.py`: adds native WinUI `ScrollViewer` support with an owned inner `Canvas` container for Toga layout content, horizontal/vertical enablement, programmatic and simulated manual scrolling, scroll event notifications, content clearing/restoring, background styling, and no-op focus/enabled semantics.
 - `winui3/src/toga_winui3/widgets/activityindicator.py`: adds native WinUI `ProgressRing` support with backend-tracked running state, stop-as-hidden behavior that preserves layout, explicit no-op focus/enabled behavior, and fixed 32x32 intrinsic sizing.
+- `winui3/src/toga_winui3/widgets/webview.py`: adds native XAML `WebView2` support for async initialization, URL loading/clearing, static and large content, user-agent overrides, JavaScript evaluation, cookie retrieval, webview-load events, and sync/async navigation-starting handlers.
 - `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail.
-- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, and `ActivityIndicator` in the backend entry points and factory exports.
+- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, `ActivityIndicator`, and `WebView` in the backend entry points and factory exports.
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
 - `winui3/tests_backend/widgets/base.py`: adds color/background probing for `SolidColorBrush`, including reporting fully transparent black as Toga `TRANSPARENT`, and falls back to backend `get_enabled()` for native elements without `IsEnabled`.
@@ -92,21 +95,21 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/progressbar.py`: probes native `ProgressBar` determinate/indeterminate state, native animation flag, and value position.
 - `winui3/tests_backend/widgets/scrollcontainer.py`: probes native `ScrollViewer` content extents, scroll positions, content presence, and manual scroll simulation.
 - `winui3/tests_backend/widgets/activityindicator.py`: probes native `ProgressRing` animation and hidden state.
+- `winui3/tests_backend/widgets/webview.py`: probes native XAML `WebView2`, marks Windows content URLs and JavaScript exceptions as unsupported, extracts cookies, and resolves large-content cache file URLs.
 
 ## Known Gaps
 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
-- WebView is blocked from a simple implementation by the current bindings: `win32more-Microsoft-Web-WebView2` exposes Core WebView2 controller APIs, `CoreWebView2Environment.CreateAsync`, `CoreWebView2ControllerWindowReference.CreateFromWindowHandle`, and controller `Bounds`, but the installed `win32more`/`winui3` packages do not expose a XAML `Microsoft.UI.Xaml.Controls.WebView2` element. A real WebView slice therefore needs an HWND-based controller hosted above a XAML placeholder, plus bounds synchronization using `TransformToVisual`/`GeneralTransform`, visibility/lifecycle cleanup, async initialization, and navigation/cookie/JavaScript event wiring.
 - The backend still lacks many widgets beyond the currently completed set and needs a parity roadmap for each widget before it becomes more than experimental.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
 
 ## Next Work
 
-1. Scope WebView as a dedicated host-window controller bridge rather than a straightforward XAML widget; do not resume WebView implementation until the bridge design covers HWND lookup, placeholder bounds conversion, async WebView2 initialization, cleanup, and Testbed WebView probe behavior.
-2. Continue with Salut-driven widgets; likely candidates include MultilineTextInput and ImageView.
+1. Continue with Salut-driven widgets; likely candidates include MultilineTextInput and ImageView.
+2. Review current Testbed coverage gaps now that WebView is green, especially missing probes/xfails/skips and unimplemented widget entry points.
 3. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Add WinUI ActivityIndicator support`.
+Milestone commit message for the latest completed slice: `Add WinUI WebView support`.

@@ -15,6 +15,7 @@ from win32more.Microsoft.UI.Windowing import (
 from win32more.Microsoft.UI.Xaml import (
     HorizontalAlignment,
     VerticalAlignment,
+    Visibility,
     WindowActivationState,
 )
 from win32more.Microsoft.UI.Xaml.Controls import (
@@ -76,6 +77,9 @@ class Window:
         self.native.AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode
         self._programmatic_close = False
         self._cached_window_size = None
+        self._restore_window_size = None
+        self._in_fullscreen_mode = False
+        self._in_presentation_mode = False
         self._previous_state = WindowState.NORMAL
 
         self.native.Activated += WeakrefCallable(self.native_event_activated)
@@ -106,6 +110,37 @@ class Window:
 
         return presenter.as_(OverlappedPresenter)
 
+    def _set_window_chrome_visible(self, visible):
+        pass
+
+    def _enter_fullscreen_like_state(self, presentation=False):
+        presenter = self._overlapped_presenter()
+        current_state = self.get_window_state()
+        self._restore_window_size = self.get_size()
+        if current_state in {WindowState.MINIMIZED, WindowState.MAXIMIZED}:
+            presenter.Restore()
+
+        if presentation:
+            self._set_window_chrome_visible(False)
+            self._in_presentation_mode = True
+        else:
+            self._in_fullscreen_mode = True
+        presenter.Maximize()
+
+    def _exit_fullscreen_like_state(self):
+        if self._in_presentation_mode:
+            self._set_window_chrome_visible(True)
+
+        self._in_fullscreen_mode = False
+        self._in_presentation_mode = False
+
+        presenter = self._overlapped_presenter()
+        presenter.Restore()
+        if self._restore_window_size is not None:
+            restore_window_size = self._restore_window_size
+            self._restore_window_size = None
+            self.set_size(restore_window_size)
+
     ####################################################################################
     # Native event handlers.
     ####################################################################################
@@ -130,9 +165,10 @@ class Window:
 
         current_state = self.get_window_state(in_progress_state=True)
         if args.DidSizeChange:
-            if self._previous_state != WindowState.MINIMIZED and (
-                current_state != WindowState.MINIMIZED
-            ):
+            if {self._previous_state, current_state} != {
+                WindowState.NORMAL,
+                WindowState.MINIMIZED,
+            }:
                 self._cached_window_size = self._appwindow_size()
                 self.interface.on_resize()
 
@@ -222,6 +258,11 @@ class Window:
 
     def content_refreshed(self, container):
         if self.interface is None or self.interface.content is None:
+            return
+        if self.get_window_state() in {
+            WindowState.FULLSCREEN,
+            WindowState.PRESENTATION,
+        }:
             return
 
         min_width = self.interface.content.layout.min_width
@@ -333,12 +374,15 @@ class Window:
         """
         presenter = self.native.AppWindow.Presenter
 
-        if presenter.Kind == AppWindowPresenterKind.FullScreen:
-            # Fullscreen here corresponds to Toga 'PRESENTATION' window state. From the
-            # Microsoft documentation: 'The window does not have a border or title bar,
-            # and hides the system task bar.
-            # learn.microsoft.com/en-us/windows/apps/develop/ui/manage-app-windows
+        if self._in_presentation_mode:
+            # Presentation is currently modeled as a maximized overlapped window with
+            # Toga app chrome hidden; the native FullScreen presenter crashes in
+            # Testbed on this backend.
             return WindowState.PRESENTATION
+        elif self._in_fullscreen_mode:
+            return WindowState.FULLSCREEN
+        elif presenter.Kind == AppWindowPresenterKind.FullScreen:
+            return WindowState.FULLSCREEN
         else:
             # Assume presenter.Kind == AppWindowPresenterKind.Overlapped, since the
             # third alternative 'CompactOverlay' is not implemented by Toga.
@@ -362,13 +406,39 @@ class Window:
 
         if state == current_state:
             return
-        elif current_state == WindowState.PRESENTATION:
-            self.native.AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped)
+        show_on_restore = (
+            current_state == WindowState.MINIMIZED and state == WindowState.NORMAL
+        )
+        resize_expected = (current_state != state) and not (
+            {current_state, state} == {WindowState.NORMAL, WindowState.MINIMIZED}
+        )
+
+        if current_state in {WindowState.FULLSCREEN, WindowState.PRESENTATION}:
+            self._exit_fullscreen_like_state()
+            if state != WindowState.NORMAL:
+                self.set_window_state(state)
+            if show_on_restore:
+                self.interface.on_show()
+            if resize_expected:
+                self.interface.on_resize()
+            return
+
+        if state == WindowState.FULLSCREEN:
+            self._enter_fullscreen_like_state()
+            if show_on_restore:
+                self.interface.on_show()
+            if resize_expected:
+                self.interface.on_resize()
+            return
+        elif state == WindowState.PRESENTATION:
+            self._enter_fullscreen_like_state(presentation=True)
+            if show_on_restore:
+                self.interface.on_show()
+            if resize_expected:
+                self.interface.on_resize()
+            return
 
         match state:
-            case WindowState.PRESENTATION:
-                self.native.AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen)
-
             case WindowState.NORMAL:
                 self._overlapped_presenter().Restore()
 
@@ -377,6 +447,11 @@ class Window:
 
             case _:
                 self._overlapped_presenter().Maximize()
+
+        if show_on_restore:
+            self.interface.on_show()
+        if resize_expected:
+            self.interface.on_resize()
 
     ####################################################################################
     # Window capabilities
@@ -391,6 +466,13 @@ class MainWindow(Window):
         super().create()
         self.toolbar_native = None
         self.toolbar_commands = []
+
+    def _set_window_chrome_visible(self, visible):
+        visibility = Visibility.Visible if visible else Visibility.Collapsed
+        if hasattr(self, "menu_native"):
+            self.menu_native.Visibility = visibility
+        if self.toolbar_native:
+            self.toolbar_native.Visibility = visibility
 
     def create_content(self):
         # Row 0 is allocated for the menu

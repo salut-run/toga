@@ -1,6 +1,8 @@
-from pytest import xfail
+from win32more.Microsoft.UI.Xaml import HorizontalAlignment
 from win32more.Microsoft.UI.Xaml.Controls import PasswordBox
 from win32more.Windows.System import VirtualKey
+
+from toga.style.pack import CENTER, LEFT, RIGHT
 
 from .base import SimpleProbe
 from .textinput import KeyEventArgs
@@ -26,7 +28,12 @@ class PasswordInputProbe(SimpleProbe):
 
     @property
     def text_align(self):
-        xfail("Can't change the text alignment of PasswordInput on WinUI")
+        return {
+            HorizontalAlignment.Left: LEFT,
+            HorizontalAlignment.Center: CENTER,
+            HorizontalAlignment.Right: RIGHT,
+            HorizontalAlignment.Stretch: LEFT,
+        }[self.native.HorizontalContentAlignment]
 
     def assert_vertical_text_align(self, expected):
         pass

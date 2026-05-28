@@ -1,8 +1,9 @@
 from decimal import InvalidOperation
 
-from pytest import xfail
+from win32more.Microsoft.UI.Xaml import HorizontalAlignment
 from win32more.Microsoft.UI.Xaml.Controls import NumberBox
 
+from toga.style.pack import CENTER, LEFT, RIGHT
 from toga.widgets.numberinput import _clean_decimal
 
 from .base import SimpleProbe
@@ -57,7 +58,12 @@ class NumberInputProbe(SimpleProbe):
 
     @property
     def text_align(self):
-        xfail("Can't change the text alignment of NumberInput on WinUI")
+        return {
+            HorizontalAlignment.Left: LEFT,
+            HorizontalAlignment.Center: CENTER,
+            HorizontalAlignment.Right: RIGHT,
+            HorizontalAlignment.Stretch: LEFT,
+        }[self.native.HorizontalContentAlignment]
 
     def assert_vertical_text_align(self, expected):
         pass

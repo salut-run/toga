@@ -84,6 +84,7 @@ class Window:
         self._programmatic_close = False
         self._cached_window_size = None
         self._restore_window_size = None
+        self._fullscreen_reported_size = None
         self._in_fullscreen_mode = False
         self._in_presentation_mode = False
         self._previous_state = WindowState.NORMAL
@@ -135,6 +136,14 @@ class Window:
             self._in_presentation_mode = True
         else:
             self._in_fullscreen_mode = True
+            presenter.Maximize()
+            # Native fullscreen reports client-style bounds, while maximized and
+            # presentation report overlapped-window bounds. Keep Toga's logical
+            # Window.size comparable across state transitions.
+            self._fullscreen_reported_size = self._appwindow_size()
+            self.native.AppWindow.SetPresenterByKind(AppWindowPresenterKind.FullScreen)
+            return
+
         presenter.Maximize()
 
     def _exit_fullscreen_like_state(self):
@@ -145,6 +154,10 @@ class Window:
 
         self._in_fullscreen_mode = False
         self._in_presentation_mode = False
+        self._fullscreen_reported_size = None
+
+        if self.native.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen:
+            self.native.AppWindow.SetPresenterByKind(AppWindowPresenterKind.Overlapped)
 
         presenter = self._overlapped_presenter()
         presenter.Restore()
@@ -370,8 +383,11 @@ class Window:
 
     def get_size(self) -> Size:
         """Gets the outer size of the window in effective pixels (CSS pixels)."""
-        if self.get_window_state() == WindowState.MINIMIZED:
+        state = self.get_window_state()
+        if state == WindowState.MINIMIZED:
             return self._cached_window_size
+        elif state == WindowState.FULLSCREEN and self._fullscreen_reported_size:
+            return self._fullscreen_reported_size
 
         return self._appwindow_size()
 
@@ -445,14 +461,13 @@ class Window:
 
         :param in_progress_state: Not supported on WinUI 3.
         :return: A WindowState constant determined by NORMAL, MAXIMIZED, MINIMIZED or
-            PRESENTATION. FULLSCREEN is not supported.
+            FULLSCREEN or PRESENTATION.
         """
         presenter = self.native.AppWindow.Presenter
 
         if self._in_presentation_mode:
             # Presentation is currently modeled as a maximized overlapped window with
-            # Toga app chrome hidden; the native FullScreen presenter crashes in
-            # Testbed on this backend.
+            # Toga app chrome hidden.
             return WindowState.PRESENTATION
         elif self._in_fullscreen_mode:
             return WindowState.FULLSCREEN
@@ -475,7 +490,7 @@ class Window:
         """Sets the state of the window.
 
         :state: A WindowState constant determined by NORMAL, MAXIMIZED, MINIMIZED or
-            PRESENTATION. FULLSCREEN is not supported and will revert to MAXIMIZED.
+            PRESENTATION.
         """
         if state != WindowState.PRESENTATION and any(
             window.state == WindowState.PRESENTATION

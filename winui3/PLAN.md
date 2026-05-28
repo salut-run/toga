@@ -6,6 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
+- Active slice: `Tree` focused verification is green; next slice is `DetailedList`.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -54,6 +55,7 @@ $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-no
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_splitcontainer.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_optioncontainer.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_table.py --tb=short
+$env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_tree.py --tb=short
 ```
 
 Run this from `C:\Users\jezdez\Code\toga`:
@@ -86,6 +88,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_splitcontainer.py` passed with `8 passed`.
 - `tests/widgets/test_optioncontainer.py` passed with `8 passed, 1 skipped`; content-based rehinting is skipped because WinUI window/content minimum-size propagation is not yet supported.
 - `tests/widgets/test_table.py` passed with `26 passed`.
+- `tests/widgets/test_tree.py` passed with `25 passed`.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -112,9 +115,10 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/scrollcontainer.py`: adds native WinUI `ScrollViewer` support with an owned inner `Canvas` container for Toga layout content, horizontal/vertical enablement, programmatic and simulated manual scrolling, scroll event notifications, content clearing/restoring, background styling, and no-op focus/enabled semantics.
 - `winui3/src/toga_winui3/widgets/activityindicator.py`: adds native WinUI `ProgressRing` support with backend-tracked running state, stop-as-hidden behavior that preserves layout, explicit no-op focus/enabled behavior, and fixed 32x32 intrinsic sizing.
 - `winui3/src/toga_winui3/widgets/table.py`: adds native WinUI `ListView`-based Table support with headers, row rendering, source updates, selection and activation callbacks, multiple selection, keyboard-probe navigation, programmatic scrolling, column insert/remove/resize behavior, and deprecated ListListener method shims; cell icons and widgets are currently unsupported.
+- `winui3/src/toga_winui3/widgets/tree.py`: adds native WinUI `Grid`/`ListView`-based Tree support with headers, backend-managed tree state, expand/collapse, source updates, single and multiple selection, activation callbacks, keyboard/probe navigation, column insert/remove/resize behavior, and deprecated TreeListener/ListListener method shims.
 - `winui3/src/toga_winui3/widgets/webview.py`: adds native XAML `WebView2` support for async initialization, URL loading/clearing, static and large content, user-agent overrides, JavaScript evaluation, cookie retrieval, webview-load events, and sync/async navigation-starting handlers.
 - `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail.
-- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `Image`, `ImageView`, `TextInput`, `MultilineTextInput`, `DateInput`, `TimeInput`, `OptionContainer`, `Slider`, `SplitContainer`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, `ActivityIndicator`, `Table`, and `WebView` in the backend entry points and factory exports.
+- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `Image`, `ImageView`, `TextInput`, `MultilineTextInput`, `DateInput`, `TimeInput`, `OptionContainer`, `Slider`, `SplitContainer`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, `ActivityIndicator`, `Table`, `Tree`, and `WebView` in the backend entry points and factory exports.
 - `winui3/tests_backend/images.py`: adds an Image probe and records that this slice supports PNG save/load only.
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
@@ -138,6 +142,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/scrollcontainer.py`: probes native `ScrollViewer` content extents, scroll positions, content presence, and manual scroll simulation.
 - `winui3/tests_backend/widgets/activityindicator.py`: probes native `ProgressRing` animation and hidden state.
 - `winui3/tests_backend/widgets/table.py`: probes native `Grid`/`ListView` Table structure, backend-managed row and column state, selection, activation, scroll position, keyboard navigation, disabled icon support, disabled cell widget support, and column resizing.
+- `winui3/tests_backend/widgets/tree.py`: probes native `Grid`/`ListView` Tree structure, backend-managed path and expansion state, child counts, selection, activation, peripheral mouse/keyboard behavior, structural-change selection clearing, structural-change collapse behavior, disabled cell widget support, and column sizing.
 - `winui3/tests_backend/widgets/webview.py`: probes native XAML `WebView2`, marks Windows content URLs and JavaScript exceptions as unsupported, extracts cookies, and resolves large-content cache file URLs.
 
 ## Known Gaps
@@ -147,8 +152,9 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are tracked by the backend rather than enforced by native picker properties.
 - OptionContainer tab icons are not exposed by the backend yet, and content-based rehinting is skipped because WinUI window/content minimum-size propagation is not implemented.
 - Table cell icons and widgets are not supported; cell widget values emit a warning and render as missing values, and icon values render text only.
-- The backend currently implements and has focused Testbed coverage for 21 widget entry points: ActivityIndicator, Box, Button, DateInput, Divider, ImageView, Label, MultilineTextInput, NumberInput, OptionContainer, PasswordInput, ProgressBar, ScrollContainer, Selection, Slider, SplitContainer, Switch, Table, TextInput, TimeInput, and WebView.
-- The backend still has 4 disabled widget entry points in `winui3/pyproject.toml`: Canvas, DetailedList, MapView, and Tree.
+- Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell icons and widgets are not supported, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
+- The backend currently implements and has focused Testbed coverage for 22 widget entry points: ActivityIndicator, Box, Button, DateInput, Divider, ImageView, Label, MultilineTextInput, NumberInput, OptionContainer, PasswordInput, ProgressBar, ScrollContainer, Selection, Slider, SplitContainer, Switch, Table, TextInput, TimeInput, Tree, and WebView.
+- The backend still has 3 disabled widget entry points in `winui3/pyproject.toml`: Canvas, DetailedList, and MapView.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
 - WinUI app/window probes still skip or xfail app icon probing, about dialogs, dialogs, menus, keyboard shortcuts/probing, status icons, app-level hide/unhide, document opening by drag, window-management menu behavior, and toolbar probing.
@@ -156,19 +162,20 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after `tests/widgets/test_table.py` passed with `26 passed`.
+- Latest review date: 2026-05-28 after `tests/widgets/test_tree.py` passed with `25 passed`.
 - OptionContainer is now green enough for backend parity tracking; its remaining content-based rehint and tab-icon gaps are recorded above.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.
-- Container/navigation/data widgets still need first-pass implementation and probes: Tree, DetailedList, Canvas, and MapView.
+- Tree is now green with native `ListView` rows and backend-managed expansion/selection state; its remaining icon/widget/native-TreeView gaps are recorded above.
+- Container/navigation/data widgets still need first-pass implementation and probes: DetailedList, Canvas, and MapView.
 - App/window coverage needs a separate pass after core Salut widgets: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, and document-opening behavior remain mostly skipped/xfail in the WinUI probes.
 - WebView now has broad Testbed coverage but not failure-mode coverage for missing WebView2 runtime/initialization failures; keep that as a defensive hardening task rather than blocking Salut use.
 
 ## Next Work
 
-1. Implement and verify the remaining data/list widgets `Tree` and `DetailedList`, or document any unavoidable platform/probe limits.
+1. Implement and verify `DetailedList`, or document any unavoidable platform/probe limits.
 2. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
 3. After the Salut-critical widgets are green, start app/window coverage work for menus, dialogs, shortcuts, toolbar probing, status icons, and document-opening behavior.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Add WinUI Table support`.
+Milestone commit message for the latest completed slice: `Add WinUI Tree support`.

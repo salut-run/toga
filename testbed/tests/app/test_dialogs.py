@@ -251,3 +251,11 @@ async def test_select_folder_dialog(
     if isinstance(result, list) and not app_probe.supports_multiple_select_folder:
         result = result[-1:]
     assert actual == result
+
+
+async def test_picker_operation_completion(app, app_probe):
+    """Native picker operation completion is handled safely."""
+    if not hasattr(app_probe, "assert_picker_operation_completion"):
+        pytest.skip("Picker operation completion probing not supported")
+
+    await app_probe.assert_picker_operation_completion()

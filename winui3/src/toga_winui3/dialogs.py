@@ -60,9 +60,12 @@ class BaseDialog:
         self.operation = operation
 
         def completed(async_info, async_status):
-            if async_status == AsyncStatus.Completed:
-                result = converter(async_info.GetResults())
-            else:
+            try:
+                if async_status == AsyncStatus.Completed:
+                    result = converter(async_info.GetResults())
+                else:
+                    result = None
+            except Exception:
                 result = None
 
             self._set_future_result(future, result)

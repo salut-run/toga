@@ -1,3 +1,5 @@
+import asyncio
+
 from win32more.Microsoft.Windows.Storage.Pickers import (
     FileOpenPicker,
     FileSavePicker,
@@ -5,6 +7,24 @@ from win32more.Microsoft.Windows.Storage.Pickers import (
     PickerLocationId,
     PickerViewMode,
 )
+from win32more.Windows.Foundation import AsyncStatus
+
+import toga
+
+
+class FakePickerOperation:
+    def __init__(self, result=None, exception=None):
+        self.result = result
+        self.exception = exception
+        self.Completed = None
+
+    def GetResults(self):
+        if self.exception:
+            raise self.exception
+        return self.result
+
+    def complete(self, async_status):
+        self.Completed(self, async_status)
 
 
 class DialogsMixin:
@@ -57,8 +77,7 @@ class DialogsMixin:
             expected_choices = {}
             if len(dialog._impl.file_types) > 1:
                 expected_choices["All matching files"] = [
-                    self._file_type(file_type)
-                    for file_type in dialog._impl.file_types
+                    self._file_type(file_type) for file_type in dialog._impl.file_types
                 ]
 
             for file_type in dialog._impl.file_types:
@@ -67,9 +86,10 @@ class DialogsMixin:
 
             assert native.FileTypeChoices.Size == len(expected_choices)
             for label, extensions in expected_choices.items():
-                assert self._vector_values(
-                    native.FileTypeChoices.Lookup(label)
-                ) == extensions
+                assert (
+                    self._vector_values(native.FileTypeChoices.Lookup(label))
+                    == extensions
+                )
         else:
             assert native.DefaultFileExtension == ""
             assert native.FileTypeChoices.Size == 0
@@ -88,8 +108,7 @@ class DialogsMixin:
         assert native.ViewMode == PickerViewMode.List
 
         expected_filters = [
-            self._file_type(file_type)
-            for file_type in dialog._impl.file_types or []
+            self._file_type(file_type) for file_type in dialog._impl.file_types or []
         ]
         assert self._vector_values(native.FileTypeFilter) == expected_filters
 
@@ -113,6 +132,37 @@ class DialogsMixin:
             dialog,
             result,
             pre_close_test_method=self._assert_select_folder_dialog_native,
+        )
+
+    async def assert_picker_operation_completion(self):
+        dialog = toga.OpenFileDialog("Open file")
+
+        async def picker_result(operation, async_status):
+            future = asyncio.get_running_loop().create_future()
+            dialog._impl._set_future_result_from_async_operation(
+                operation,
+                future,
+                lambda result: f"converted {result}",
+            )
+            operation.complete(async_status)
+            return await asyncio.wait_for(future, timeout=1)
+
+        assert (
+            await picker_result(FakePickerOperation("path"), AsyncStatus.Completed)
+        ) == "converted path"
+        assert (
+            await picker_result(FakePickerOperation("path"), AsyncStatus.Canceled)
+            is None
+        )
+        assert (
+            await picker_result(FakePickerOperation("path"), AsyncStatus.Error) is None
+        )
+        assert (
+            await picker_result(
+                FakePickerOperation(exception=OSError("picker failed")),
+                AsyncStatus.Completed,
+            )
+            is None
         )
 
     def is_modal_dialog(self, dialog):

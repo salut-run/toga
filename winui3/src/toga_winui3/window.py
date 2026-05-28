@@ -234,7 +234,7 @@ class Window:
             self.container.on_refresh = None
         self.interface = None
         self.native.Content = None
-        self.native.AppWindow.Destroy()
+        self.native.Close()
         self.is_activated = False
         self.container = None
         self.content_native = None

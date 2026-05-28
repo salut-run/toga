@@ -48,6 +48,7 @@ class WindowProbe(BaseProbe, DialogsMixin):
         await self.redraw(message, delay=0.1)
 
     async def cleanup(self):
+        self.native = None
         self.window.close()
         await self.redraw("Closing window")
 

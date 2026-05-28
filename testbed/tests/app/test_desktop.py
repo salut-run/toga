@@ -615,7 +615,10 @@ async def test_current_window(app, app_probe, main_window, main_window_probe):
 async def test_system_dpi_change(
     main_window, main_window_probe, event_path, mock_scale
 ):
-    if toga.platform.current_platform != "windows":
+    if (
+        toga.platform.current_platform != "windows"
+        or toga.platform.get_backend() != "toga_winforms"
+    ):
         pytest.xfail("This test is winforms backend specific")
 
     from toga_winforms.libs import shcore

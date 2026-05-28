@@ -8,8 +8,9 @@ This file is the persistent coordination state for the experimental `toga-winui3
 - Active Toga branch: `winui3-backend`.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
-- The latest completed WinUI slice builds out Button, Label, TextInput, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, WebView, font handling, staging measurement, color probes, and backend probes.
+- The latest completed WinUI slice builds out Button, Label, TextInput, MultilineTextInput, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, WebView, font handling, staging measurement, color probes, and backend probes.
 - WebView was initially believed to require a Core WebView2 HWND controller bridge, but after the Briefcase dev environment was refreshed the installed `win32more.Microsoft.UI.Xaml.Controls` package exposed the XAML `WebView2` control. The backend now uses that native control directly.
+- MultilineTextInput cannot inherit TextInput focus tracking directly because the core `MultilineTextInput` interface does not expose `on_gain_focus`/`on_lose_focus`; its backend must use native focus without dispatching TextInput-only focus handlers.
 
 ## Operating Rules
 
@@ -43,12 +44,13 @@ $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-no
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_scrollcontainer.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_activityindicator.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_webview.py --tb=short
+$env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_multilinetextinput.py --tb=short
 ```
 
 Run this from `C:\Users\jezdez\Code\toga`:
 
 ```powershell
-uvx ruff check winui3/src/toga_winui3/container.py winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/widgets/selection.py winui3/src/toga_winui3/widgets/divider.py winui3/src/toga_winui3/widgets/numberinput.py winui3/src/toga_winui3/widgets/passwordinput.py winui3/src/toga_winui3/widgets/progressbar.py winui3/src/toga_winui3/widgets/scrollcontainer.py winui3/src/toga_winui3/widgets/activityindicator.py winui3/src/toga_winui3/widgets/webview.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/switch.py winui3/tests_backend/widgets/selection.py winui3/tests_backend/widgets/divider.py winui3/tests_backend/widgets/numberinput.py winui3/tests_backend/widgets/passwordinput.py winui3/tests_backend/widgets/progressbar.py winui3/tests_backend/widgets/scrollcontainer.py winui3/tests_backend/widgets/activityindicator.py winui3/tests_backend/widgets/webview.py
+uvx ruff check winui3/src/toga_winui3/container.py winui3/src/toga_winui3/fonts.py winui3/src/toga_winui3/widgets/base.py winui3/src/toga_winui3/widgets/button.py winui3/src/toga_winui3/widgets/label.py winui3/src/toga_winui3/widgets/textinput.py winui3/src/toga_winui3/widgets/multilinetextinput.py winui3/src/toga_winui3/widgets/switch.py winui3/src/toga_winui3/widgets/selection.py winui3/src/toga_winui3/widgets/divider.py winui3/src/toga_winui3/widgets/numberinput.py winui3/src/toga_winui3/widgets/passwordinput.py winui3/src/toga_winui3/widgets/progressbar.py winui3/src/toga_winui3/widgets/scrollcontainer.py winui3/src/toga_winui3/widgets/activityindicator.py winui3/src/toga_winui3/widgets/webview.py winui3/src/toga_winui3/factory.py winui3/tests_backend/fonts.py winui3/tests_backend/probe.py winui3/tests_backend/widgets/base.py winui3/tests_backend/widgets/button.py winui3/tests_backend/widgets/textinput.py winui3/tests_backend/widgets/multilinetextinput.py winui3/tests_backend/widgets/switch.py winui3/tests_backend/widgets/selection.py winui3/tests_backend/widgets/divider.py winui3/tests_backend/widgets/numberinput.py winui3/tests_backend/widgets/passwordinput.py winui3/tests_backend/widgets/progressbar.py winui3/tests_backend/widgets/scrollcontainer.py winui3/tests_backend/widgets/activityindicator.py winui3/tests_backend/widgets/webview.py
 ```
 
 If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, look for stale `uvx`, `uv`, `briefcase`, or `python` processes whose command lines mention `testbed-winui3` or `Code\toga\testbed`, then kill only those stale testbed-related processes and retry.
@@ -68,6 +70,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_scrollcontainer.py` passed with `18 passed`.
 - `tests/widgets/test_activityindicator.py` passed with `7 passed`.
 - `tests/widgets/test_webview.py` passed with `20 passed`.
+- `tests/widgets/test_multilinetextinput.py` passed with `38 passed, 2 skipped`; undo/redo and mouse-wheel simulation are skipped by current WinUI probe policy.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -77,6 +80,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/button.py`: uses `WeakrefCallable` for `Click`, uses `TextBlock` content so text measures correctly, renders icons as 32x32 native XAML `Image` content, treats empty text as zero-width space for height, and keeps Button-specific transparent background behavior as a native reset.
 - `winui3/src/toga_winui3/widgets/label.py`: uses a native `Border` wrapper with an inner `TextBlock`, supports native background colors, foreground color reset, font application, enabled state, horizontal text alignment, zero-width-space height preservation for empty text, and content-based measurement.
 - `winui3/src/toga_winui3/widgets/textinput.py`: adds minimal but tested WinUI `TextBox` support for value, placeholder, readonly, text alignment, focus/change/confirm events, validation state, font-sensitive rehinting, and single-line behavior.
+- `winui3/src/toga_winui3/widgets/multilinetextinput.py`: adds native WinUI multiline `TextBox` support for value, placeholder, readonly, text alignment, focus, change events, newline normalization, multiline wrapping, and programmatic scrolling through the TextBox template's internal `ScrollViewer`.
 - `winui3/src/toga_winui3/widgets/switch.py`: adds native `CheckBox` support for text, value, enabled, color/background, font-sensitive measurement, focus, press/change events, and WinRT boxed Boolean unboxing with `win32more.unbox_value`.
 - `winui3/src/toga_winui3/widgets/selection.py`: adds native `ComboBox` support for list data source updates, duplicate display titles, programmatic and user selection changes, selected-item preservation across source inserts/removals, font-sensitive text measurement, and explicit Python-side title tracking because WinUI/win32more does not reliably expose `ComboBoxItem.Content` after insertion.
 - `winui3/src/toga_winui3/widgets/divider.py`: adds a native WinUI `Border` separator with horizontal/vertical intrinsic sizing and inert background styling.
@@ -87,13 +91,14 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/activityindicator.py`: adds native WinUI `ProgressRing` support with backend-tracked running state, stop-as-hidden behavior that preserves layout, explicit no-op focus/enabled behavior, and fixed 32x32 intrinsic sizing.
 - `winui3/src/toga_winui3/widgets/webview.py`: adds native XAML `WebView2` support for async initialization, URL loading/clearing, static and large content, user-agent overrides, JavaScript evaluation, cookie retrieval, webview-load events, and sync/async navigation-starting handlers.
 - `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail.
-- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, `ActivityIndicator`, and `WebView` in the backend entry points and factory exports.
+- `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable `TextInput`, `MultilineTextInput`, `Switch`, `Selection`, `Divider`, `NumberInput`, `PasswordInput`, `ProgressBar`, `ScrollContainer`, `ActivityIndicator`, and `WebView` in the backend entry points and factory exports.
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
 - `winui3/tests_backend/widgets/base.py`: adds color/background probing for `SolidColorBrush`, including reporting fully transparent black as Toga `TRANSPARENT`, and falls back to backend `get_enabled()` for native elements without `IsEnabled`.
 - `winui3/tests_backend/widgets/button.py`: probes Button `TextBlock` content, targets that content for font assertions, and verifies native icon image size.
 - `winui3/tests_backend/widgets/label.py`: probes the `Border`/`TextBlock` split correctly for text, foreground color, font, and alignment.
 - `winui3/tests_backend/widgets/textinput.py`: adds TextInput probing for value, placeholder, readonly, alignment, typing, confirm key, selection, and cursor placement.
+- `winui3/tests_backend/widgets/multilinetextinput.py`: adds MultilineTextInput probing for normalized values, document extent, scroll position, typed input, selection, placeholder behavior, and marks mouse-wheel simulation unsupported.
 - `winui3/tests_backend/widgets/switch.py`: probes `CheckBox` content text and font target, normalizes zero-width-space empty text, and simulates press via the backend value path because a native WinUI click is not currently injectable in the probe.
 - `winui3/tests_backend/widgets/selection.py`: probes `ComboBox` item titles through the backend title cache, selected title, GUI selection changes, content-resize behavior, and xfails text alignment.
 - `winui3/tests_backend/widgets/divider.py`: probes the native `Border` separator used by Divider.
@@ -107,8 +112,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 ## Known Gaps
 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
-- The backend currently implements and has focused Testbed coverage for 13 widget entry points: ActivityIndicator, Box, Button, Divider, Label, NumberInput, PasswordInput, ProgressBar, ScrollContainer, Selection, Switch, TextInput, and WebView.
-- The backend still has 12 disabled widget entry points in `winui3/pyproject.toml`: Canvas, DateInput, DetailedList, ImageView, MapView, MultilineTextInput, OptionContainer, Slider, SplitContainer, Table, TimeInput, and Tree.
+- The backend currently implements and has focused Testbed coverage for 14 widget entry points: ActivityIndicator, Box, Button, Divider, Label, MultilineTextInput, NumberInput, PasswordInput, ProgressBar, ScrollContainer, Selection, Switch, TextInput, and WebView.
+- The backend still has 11 disabled widget entry points in `winui3/pyproject.toml`: Canvas, DateInput, DetailedList, ImageView, MapView, OptionContainer, Slider, SplitContainer, Table, TimeInput, and Tree.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
 - WinUI app/window probes still skip or xfail app icon probing, about dialogs, dialogs, menus, keyboard shortcuts/probing, status icons, app-level hide/unhide, document opening by drag, window-management menu behavior, and toolbar probing.
@@ -116,8 +121,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after `tests/widgets/test_webview.py` passed with `20 passed`.
-- Next highest-value widget coverage for Salut is `MultilineTextInput`, because chat composition and multiline editing are likely to be exercised before complex data widgets.
+- Latest review date: 2026-05-28 after `tests/widgets/test_multilinetextinput.py` passed with `38 passed, 2 skipped`.
+- The next highest-value widget coverage for Salut is likely `Image`/`ImageView`, so the app can render native images and richer conversation/media surfaces before complex data widgets.
 - The next likely asset/display coverage gap is `Image`/`ImageView`; `ImageView` cannot be fully enabled until the backend has an image implementation or a clear native image-loading path matching Toga image semantics.
 - Container/navigation/data widgets still need first-pass implementation and probes: OptionContainer, SplitContainer, Table, Tree, DetailedList, Slider, DateInput, TimeInput, Canvas, and MapView.
 - App/window coverage needs a separate pass after core Salut widgets: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, and document-opening behavior remain mostly skipped/xfail in the WinUI probes.
@@ -125,11 +130,10 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Next Work
 
-1. Implement and verify MultilineTextInput with native WinUI `TextBox` multiline/scroll behavior.
-2. Implement Image and ImageView support, or explicitly document the native image-loading bridge needed before ImageView can pass Testbed.
-3. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
-4. After the Salut-critical widgets are green, start app/window coverage work for menus, dialogs, shortcuts, toolbar probing, status icons, and document-opening behavior.
+1. Implement Image and ImageView support, or explicitly document the native image-loading bridge needed before ImageView can pass Testbed.
+2. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
+3. After the Salut-critical widgets are green, start app/window coverage work for menus, dialogs, shortcuts, toolbar probing, status icons, and document-opening behavior.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Add WinUI WebView support`.
+Milestone commit message for the latest completed slice: `Add WinUI MultilineTextInput support`.

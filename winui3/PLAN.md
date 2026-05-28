@@ -6,7 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
-- Active slice: all widget entry points have first-pass WinUI implementations and focused Testbed results; next slice is coverage gap review and app/window probe triage.
+- Active slice: coverage gap review is complete; all widget entry points have first-pass WinUI implementations and focused Testbed results, and the next implementation slice is app/window probe triage plus the two major widget parity gaps, Canvas drawing and real MapView rendering.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -169,7 +169,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - Canvas uses native WinUI `CanvasControl` for hosting but does not yet render Toga drawing actions with Win2D; the visual reference tests are skipped, and `get_image_data()` currently exports only the canvas background/bounds rather than drawn content.
 - MapView uses a native WinUI host with backend-managed state, not a real map tile control; there is no map tile rendering, pan/gesture support, provider integration, geolocation, or platform map service bridge yet.
 - The backend currently implements and has focused Testbed coverage for 25 widget entry points: ActivityIndicator, Box, Button, Canvas, DateInput, DetailedList, Divider, ImageView, Label, MapView, MultilineTextInput, NumberInput, OptionContainer, PasswordInput, ProgressBar, ScrollContainer, Selection, Slider, SplitContainer, Switch, Table, TextInput, TimeInput, Tree, and WebView.
-- The backend has no disabled widget entry points left in `winui3/pyproject.toml`.
+- The backend has no disabled widget entry points left in `winui3/pyproject.toml`; the latest focused scan of `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py` confirmed every current widget entry point is enabled.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
 - WinUI app/window probes still skip or xfail app icon probing, about dialogs, dialogs, menus, keyboard shortcuts/probing, status icons, app-level hide/unhide, document opening by drag, window-management menu behavior, and toolbar probing.
@@ -178,6 +178,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 ## Coverage Gap Review
 
 - Latest review date: 2026-05-28 after `tests/widgets/test_mapview.py` passed with `7 passed`.
+- Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer is now green enough for backend parity tracking; its remaining content-based rehint and tab-icon gaps are recorded above.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.
 - Tree is now green with native `ListView` rows and backend-managed expansion/selection state; its remaining icon/widget/native-TreeView gaps are recorded above.
@@ -185,15 +186,18 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - Canvas has first-pass host/event/export coverage but not visual drawing parity; implement Win2D drawing and image export before considering Canvas complete.
 - MapView is green at the Toga state/probe level but is not a real map renderer; implement a native or WebView-backed map provider before considering MapView complete.
 - All current widget entry points have first-pass WinUI implementations, backend probes, and focused Testbed results; the remaining work is quality/parity gaps, app/window skipped coverage, and full-backend regression coverage.
-- App/window coverage needs a separate pass after core Salut widgets: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, and document-opening behavior remain mostly skipped/xfail in the WinUI probes.
+- App probe skips remain for app icon probing, about dialogs, generic dialog probing, menu probing/order/system menu assertions, keyboard probing, and status icon activation; app probe xfails remain for app-level unhide, app-level hide menu behavior, window-management menu actions, initial document support, and document opening by drag.
+- Window probe gaps remain for native toolbar probing and toolbar button activation; `supports_as_image` and `supports_closable` are still false and need either implementation or an explicit platform rationale.
+- Widget probe gaps from the latest scan are concentrated in custom fonts, undo/redo, Canvas visual rendering, MultilineTextInput mouse-wheel simulation, OptionContainer content-based rehinting and icons, Selection/NumberInput/PasswordInput text alignment, Table and Tree cell widgets/icons plus keyboard shortcut probes, TimeInput seconds/native limits, and WebView content root URLs/JavaScript exception behavior.
 - WebView now has broad Testbed coverage but not failure-mode coverage for missing WebView2 runtime/initialization failures; keep that as a defensive hardening task rather than blocking Salut use.
 
 ## Next Work
 
-1. Review app/window skipped and xfailed coverage: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, and document-opening behavior.
-2. Replace Canvas no-op drawing with Win2D-backed rendering and real `get_image_data()` output.
-3. Replace MapView's backend-managed placeholder with a real map provider/control.
+1. Implement or explicitly justify the app/window probe gaps: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, document-opening behavior, closability, and window image capture.
+2. Replace Canvas no-op drawing with Win2D-backed rendering and real `get_image_data()` output so the visual reference tests can run instead of skipping.
+3. Replace MapView's backend-managed placeholder with a real map provider/control, or document a deliberate WebView-backed provider plan if no native WinUI map control is viable.
+4. Revisit widget limitation probes after the app/window pass and separate hard native limits from missing implementation work.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed slice: `Add WinUI MapView support`.
+Milestone commit message for the latest completed implementation slice: `Add WinUI MapView support`.

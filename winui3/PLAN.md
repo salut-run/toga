@@ -238,8 +238,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after Win2D Canvas visual-reference coverage passed with `42 passed, 3 xfailed`.
-- Latest mechanical gap scan: 2026-05-28 after Win2D Canvas visual-reference coverage was enabled; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, MapView provider/offline hardening, or production polish gaps.
+- Latest review date: 2026-05-28 after startup document/file activation passed with `tests/app/test_document_app.py` reporting `9 passed` and the broader `tests/app/test_app.py tests/app/test_desktop.py` slice reporting `23 passed, 21 xfailed`.
+- Latest mechanical gap scan: 2026-05-28 after startup document/file activation was enabled; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app-level hide/unhide, WinForms-only system-DPI coverage, edit-menu no-focus behavior, native platform limitations, MapView provider/offline hardening, or production polish gaps.
 - OptionContainer now has content-based rehint coverage and native tab-icon support through `TabViewItem.IconSource`; no active OptionContainer probe gap is known.
 - Table is now green with native `ListView` rows, backend-managed table state, select-all keyboard shortcuts, keyboard boundary shortcut coverage, and cell icons/widgets in all columns.
 - Tree is now green with native `ListView` rows, backend-managed expansion/selection state, select-all keyboard shortcuts, and cell icons/widgets in all columns; its remaining native-TreeView gap is recorded above.

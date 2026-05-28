@@ -78,7 +78,7 @@ SimpleStatusIcon = "toga_winui3.statusicons:SimpleStatusIcon"
 StatusIconSet = "toga_winui3.statusicons:StatusIconSet"
 
 # Widgets
-# ActivityIndicator = "toga_winui3.widgets.activityindicator:ActivityIndicator"
+ActivityIndicator = "toga_winui3.widgets.activityindicator:ActivityIndicator"
 Box = "toga_winui3.widgets.box:Box"
 Button = "toga_winui3.widgets.button:Button"
 # Canvas = "toga_winui3.widgets.canvas:Canvas"

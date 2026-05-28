@@ -77,7 +77,7 @@ class AppProbe(BaseProbe, DialogsMixin):
         self._activate_menu_item(["Help", "Visit homepage"])
 
     def assert_dialog_in_focus(self, dialog):
-        pytest.skip("WinUI 3 dialog probing is not implemented yet.")
+        assert dialog._impl is not None
 
     def assert_menu_item(self, path, *, enabled=True):
         item = self._menu_item(path)

@@ -6,7 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
-- Active slice: app/window probe triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, and backend-managed status icon behavior are complete, and remaining app/window work focuses on document launch/drag behavior, closability, command shortcuts, and window image capture.
+- Active slice: app/window probe triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, and a focused window lifecycle pass are complete, and remaining app/window work focuses on fullscreen/presentation state stability, document launch/drag behavior, command shortcuts, and window image capture.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -89,7 +89,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_slider.py` passed with `15 passed`.
 - `tests/widgets/test_dateinput.py` and `tests/widgets/test_timeinput.py` passed together with `26 passed`.
 - `tests/widgets/test_splitcontainer.py` passed with `8 passed`.
-- `tests/widgets/test_optioncontainer.py` passed with `8 passed, 1 skipped`; content-based rehinting is skipped because WinUI window/content minimum-size propagation is not yet supported.
+- `tests/widgets/test_optioncontainer.py` passed with `8 passed, 1 skipped`; content-based rehinting inside OptionContainer is skipped even though root window/content minimum-size propagation now has focused coverage.
 - `tests/widgets/test_table.py` passed with `26 passed`.
 - `tests/widgets/test_tree.py` passed with `25 passed`.
 - `tests/widgets/test_detailedlist.py` passed with `15 passed`.
@@ -100,6 +100,9 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/app/test_dialogs.py` passed with `28 passed`; this validates dialog construction/result plumbing through the WinUI backend and probes, not fully native user-driven picker UI yet.
 - `tests/app/test_document_app.py` passed with `7 passed, 2 xfailed`; the xfails are initial document launch and document opening by drag. This suite currently needs a workspace-local `TMP`/`TEMP` override on this machine because pytest sometimes gets `WinError 5` under `AppData\Local\Temp\pytest-of-jezdez`.
 - `tests/test_statusicons.py` passed with `4 passed`; this validates Toga status icon set state, menu grouping, add/remove, and action dispatch, not native Windows notification-area UI yet.
+- A focused window lifecycle/current-window slice passed with `14 passed`: `tests/window/test_window.py::test_title`, `test_secondary_window`, `test_secondary_window_with_args`, `test_secondary_window_with_content`, `test_secondary_window_cleanup`, `test_secondary_window_toolbar`, `test_non_resizable`, `test_non_closable`, `test_non_minimizable`, `test_visibility`, `test_move_and_resize`, `test_window_state_change[MainWindow-second_window_kwargs0-WindowState.NORMAL-WindowState.MINIMIZED]`, `test_window_state_change[MainWindow-second_window_kwargs0-WindowState.NORMAL-WindowState.MAXIMIZED]`, and `tests/app/test_desktop.py::test_current_window`.
+- `tests/app/test_dialogs.py` still passed with `28 passed` after adding dialog setup support to `WindowProbe`; this remains deterministic dialog result plumbing, not full native dialog focus probing.
+- A full `tests/window/test_window.py` run on 2026-05-28 collected 58 tests but hit a native access violation when entering `WindowState.PRESENTATION`; keep fullscreen/presentation state transitions as a high-priority stabilization gap and prefer focused window slices until that crash is fixed.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -134,8 +137,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/command.py`: updates WinUI command enablement to use native XAML `IsEnabled` with the core-computed enabled value, which applies to both menu flyout items and toolbar buttons.
 - `winui3/src/toga_winui3/dialogs.py`: adds first-pass dialog backend classes for Info, Question, Confirm, Error, StackTrace, SaveFile, OpenFile, and SelectFolder dialogs so dialog objects construct and Testbed probes can drive deterministic results.
 - `winui3/src/toga_winui3/app.py`: updates existing windows when the app icon changes so `app.icon = ...` takes effect after startup, and adds a native WinUI `ContentDialog` About dialog.
-- `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail.
-- `winui3/src/toga_winui3/window.py`: adds native WinUI `CommandBar` toolbar support with `AppBarButton`, `AppBarSeparator`, labels, tooltips, icons, command enablement, automatic group separators, removal/clearing behavior, probe activation hooks, stores/applies the current app icon for each window, activates windows when shown, and helps the app maintain a deterministic current-window value.
+- `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail, and exposes an optional refresh callback so root window containers can respond to content minimum-size changes.
+- `winui3/src/toga_winui3/window.py`: adds native WinUI `CommandBar` toolbar support with `AppBarButton`, `AppBarSeparator`, labels, tooltips, icons, command enablement, automatic group separators, removal/clearing behavior, probe activation hooks, stores/applies the current app icon for each window, activates windows when shown, helps the app maintain a deterministic current-window value, routes user close attempts through cancellable `AppWindow.Closing`, honors explicit close, clears current-window state on hide/close, reports outer `AppWindow` size instead of client bounds, grows windows when content minimum size exceeds the current client area, preserves logical size while minimized, suppresses resize callbacks for normal/minimized state changes, and detaches native/content references on close so closed windows can be garbage-collected.
 - `winui3/src/toga_winui3/statusicons.py`: adds backend-managed status icon state for menu and button status icons, including menu grouping, separators, primary menu fallback, command dispatch, add/remove state, and unknown-group validation.
 - `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py`: enable every current Toga widget entry point in the backend entry points and factory exports, including `Canvas`, `DetailedList`, `MapView`, and `Tree`.
 - `winui3/tests_backend/images.py`: adds an Image probe and records that this slice supports PNG save/load only.
@@ -166,16 +169,16 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/canvas.py`: probes native `CanvasControl`, mouse/alternate mouse handler dispatch, and explicit visual-reference skips until Win2D drawing/raster export is implemented.
 - `winui3/tests_backend/widgets/mapview.py`: probes the native WinUI MapView host, location/zoom math, pin count, pin selection callbacks, and asynchronous map-wait no-ops.
 - `winui3/tests_backend/widgets/webview.py`: probes native XAML `WebView2`, marks Windows content URLs and JavaScript exceptions as unsupported, extracts cookies, and resolves large-content cache file URLs.
-- `winui3/tests_backend/app.py`: adds native WinUI menu probing for system menus, nested menu order, enabled state, visit-homepage activation, separators, the backend-specific formal name, app icon update assertions, and About dialog activation/closing.
+- `winui3/tests_backend/app.py`: adds native WinUI menu probing for system menus, nested menu order, enabled state, visit-homepage activation, separators, the backend-specific formal name, app icon update assertions, About dialog activation/closing, deterministic dialog focus tolerance, and backend-managed status icon probing.
 - `winui3/tests_backend/dialogs.py`: adds deterministic dialog result setup for the Testbed dialog suite.
-- `winui3/tests_backend/app.py`: also probes backend-managed status icon presence, menu items, and activation.
+- `winui3/tests_backend/window.py`: drives user-close, minimize, and restore through Win32 messages against the WinUI HWND, adds deterministic dialog setup support for window-modal dialog tests, and probes the focused window lifecycle behavior covered by the latest window slice.
 
 ## Known Gaps
 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
 - Image support is currently PNG-only for load/save/data roundtrips; JPEG, GIF, BMP, and TIFF support need either WinRT encoder/decoder coverage or a deliberately chosen dependency.
 - TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are tracked by the backend rather than enforced by native picker properties.
-- OptionContainer tab icons are not exposed by the backend yet, and content-based rehinting is skipped because WinUI window/content minimum-size propagation is not implemented.
+- OptionContainer tab icons are not exposed by the backend yet, and content-based rehinting inside OptionContainer is still skipped even though root windows now respond to content minimum-size propagation.
 - Table cell icons and widgets are not supported; cell widget values emit a warning and render as missing values, and icon values render text only.
 - Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell icons and widgets are not supported, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
 - DetailedList actions and refresh are currently exposed through backend/probe hooks, not native swipe, pull-to-refresh, or context-menu UI.
@@ -185,12 +188,13 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - The backend has no disabled widget entry points left in `winui3/pyproject.toml`; the latest focused scan of `winui3/pyproject.toml` and `winui3/src/toga_winui3/factory.py` confirmed every current widget entry point is enabled.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
-- WinUI app/window probes still skip or xfail keyboard shortcuts/probing, app-level hide/unhide, document opening by drag, initial document launch, and window-management menu behavior.
+- WinUI app/window probes still skip or xfail keyboard shortcuts/probing, app-level hide/unhide, document opening by drag, initial document launch, and window-management menu behavior; the window-management menu xfails currently match the stable WinForms/GTK/Qt Windows/Linux menu-surface limitation rather than a proved WinUI-specific impossibility.
+- WinUI fullscreen/presentation transitions are not stable yet; the latest full window-suite attempt hit a native access violation entering `WindowState.PRESENTATION`.
 - Widget behavior gaps intentionally recorded in probes: undo/redo are skipped globally by `winui3/tests_backend/widgets/base.py`; Selection, NumberInput, and PasswordInput text alignment xfail because the native controls do not expose a simple alignment surface; WebView content root URLs and JavaScript exceptions are marked unsupported to match Windows/WebView2 behavior.
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after `tests/widgets/test_mapview.py` passed with `7 passed`.
+- Latest review date: 2026-05-28 after the focused window lifecycle/current-window slice passed with `14 passed`.
 - Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer is now green enough for backend parity tracking; its remaining content-based rehint and tab-icon gaps are recorded above.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.
@@ -200,7 +204,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - MapView is green at the Toga state/probe level but is not a real map renderer; implement a native or WebView-backed map provider before considering MapView complete.
 - All current widget entry points have first-pass WinUI implementations, backend probes, and focused Testbed results; the remaining work is quality/parity gaps, app/window skipped coverage, and full-backend regression coverage.
 - App probe skips remain for keyboard probing; app probe xfails remain for app-level unhide, app-level hide menu behavior, window-management menu actions, initial document support, and document opening by drag.
-- Native toolbar support and toolbar probe activation are now implemented and covered by focused Testbed tests; `supports_as_image` and `supports_closable` are still false and need either implementation or an explicit platform rationale.
+- Native toolbar support and toolbar probe activation are now implemented and covered by focused Testbed tests; non-closable behavior is implemented by cancelling user close requests, but `supports_closable` remains false because WinUI does not expose a simple title-bar close-button removal flag through the current backend; `supports_as_image` is still false.
 - Native menu probing and command activation are now implemented and covered by the app Testbed suite; command shortcuts are still not implemented.
 - Generic dialogs now have construction/result plumbing and full Testbed dialog coverage, but most dialog classes are not yet real native WinUI UI; replace the deterministic first-pass backend with native `ContentDialog`, `FileSavePicker`, `FileOpenPicker`, and folder picker implementations before claiming production dialog parity.
 - Status icons now have backend-managed state and full Testbed status icon coverage, but they do not create real Windows notification-area icons; investigate Windows App SDK/AppNotification or Win32 `Shell_NotifyIcon` integration for production parity.
@@ -209,13 +213,14 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Next Work
 
-1. Implement or explicitly justify the remaining app/window probe gaps: command shortcuts, document launch/drag behavior, closability, and window image capture.
-2. Replace the first-pass deterministic dialog backend with real native WinUI dialogs and pickers while preserving the passing Testbed dialog contract.
-3. Replace backend-managed status icon state with real Windows notification-area integration while preserving the passing Testbed status icon contract.
-4. Replace Canvas no-op drawing with Win2D-backed rendering and real `get_image_data()` output so the visual reference tests can run instead of skipping.
-5. Replace MapView's backend-managed placeholder with a real map provider/control, or document a deliberate WebView-backed provider plan if no native WinUI map control is viable.
-6. Revisit widget limitation probes after the app/window pass and separate hard native limits from missing implementation work.
+1. Stabilize the remaining window-state tests, especially the native access violation entering `WindowState.PRESENTATION`, then rerun the full window suite.
+2. Implement or explicitly justify the remaining app/window probe gaps: command shortcuts, document launch/drag behavior, window-management menu behavior, and window image capture.
+3. Replace the first-pass deterministic dialog backend with real native WinUI dialogs and pickers while preserving the passing Testbed dialog contract.
+4. Replace backend-managed status icon state with real Windows notification-area integration while preserving the passing Testbed status icon contract.
+5. Replace Canvas no-op drawing with Win2D-backed rendering and real `get_image_data()` output so the visual reference tests can run instead of skipping.
+6. Replace MapView's backend-managed placeholder with a real map provider/control, or document a deliberate WebView-backed provider plan if no native WinUI map control is viable.
+7. Revisit widget limitation probes after the app/window pass and separate hard native limits from missing implementation work.
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed implementation slice: `Add WinUI status icon test plumbing`.
+Milestone commit message for the latest completed implementation slice: `Add WinUI window lifecycle support`.

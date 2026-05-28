@@ -40,11 +40,12 @@ from win32more.Windows.Graphics import PointInt32, SizeInt32
 from toga import App
 from toga.command import Separator
 from toga.constants import WindowState
+from toga.handlers import WeakrefCallable
 from toga.types import Position, Size
 
 from .container import Container
 from .libs.misc import column_definition_star, row_definition_auto, row_definition_star
-from .screens import Screen as ScreenImpl, round_pixels
+from .screens import Screen as ScreenImpl
 
 if TYPE_CHECKING:  # pragma: no cover
     from toga.types import PositionT, SizeT
@@ -73,26 +74,37 @@ class Window:
         self.native = App.app._impl.native_instance.CreateWindow()
         self.native.SystemBackdrop = MicaBackdrop()
         self.native.AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode
+        self._programmatic_close = False
+        self._cached_window_size = None
+        self._previous_state = WindowState.NORMAL
 
-        # TODO: Decide if these event handlers need to be a weak reference.
-        self.native.Activated += self.native_event_activated
-        self.native.AppWindow.Changed += self.native_event_changed
+        self.native.Activated += WeakrefCallable(self.native_event_activated)
+        self.native.AppWindow.Changed += WeakrefCallable(self.native_event_changed)
+        self.native.AppWindow.Closing += WeakrefCallable(self.native_event_closing)
 
     def create_content(self):
         """Construct the container."""
         self.content_native = Canvas()
-        self.container = Container(self.content_native)
+        self.container = Container(
+            self.content_native,
+            on_refresh=self.content_refreshed,
+        )
 
     def _set_restrictions(self):
         """Sets the window properties of being minimizable and resizable."""
-        presenter = self.native.AppWindow.Presenter
-        if presenter.Kind != AppWindowPresenterKind.Overlapped:
+        overlapped_presenter = self._overlapped_presenter()
+        if overlapped_presenter is None:
             return
 
-        # Cast presenter as an instance of OverlappedPresenter and set the restrictions.
-        overlapped_presenter = OverlappedPresenter(value=presenter.value)
         overlapped_presenter.IsMinimizable = self.interface.minimizable
         overlapped_presenter.IsResizable = self.interface.resizable
+
+    def _overlapped_presenter(self):
+        presenter = self.native.AppWindow.Presenter
+        if presenter.Kind != AppWindowPresenterKind.Overlapped:
+            return None
+
+        return presenter.as_(OverlappedPresenter)
 
     ####################################################################################
     # Native event handlers.
@@ -101,6 +113,9 @@ class Window:
     def native_event_activated(self, sender, args):
         """Event that fires when the window is activated or deactivated."""
         # learn.microsoft.com/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.window.activated # noqa: E501
+        if self.interface is None:
+            return
+
         if args.WindowActivationState == WindowActivationState.Deactivated:
             self.is_activated = False
             self.interface.on_lose_focus()
@@ -110,21 +125,45 @@ class Window:
             self.interface.on_gain_focus()
 
     def native_event_changed(self, sender, args):
+        if self.interface is None:
+            return
 
-        if args.DidPositionChange:
-            pass
-
+        current_state = self.get_window_state(in_progress_state=True)
         if args.DidSizeChange:
-            self.interface.on_resize()
+            if self._previous_state != WindowState.MINIMIZED and (
+                current_state != WindowState.MINIMIZED
+            ):
+                self._cached_window_size = self._appwindow_size()
+                self.interface.on_resize()
 
         if args.DidVisibilityChange:
             if self.native.AppWindow.IsVisible:
                 self.interface.on_show()
             else:
+                if self.interface.app._impl._current_window is self:
+                    self.interface.app._impl._current_window = None
                 self.interface.on_hide()
 
         if args.DidPresenterChange:
+            if self._previous_state != current_state:
+                if self._previous_state == WindowState.MINIMIZED:
+                    self.interface.on_show()
+                elif current_state == WindowState.MINIMIZED:
+                    self.interface.on_hide()
+
             self._set_restrictions()
+            self._previous_state = current_state
+
+    def native_event_closing(self, sender, args):
+        if self.interface is None:
+            return
+
+        if self._programmatic_close or self.interface.app._impl._is_exiting:
+            return
+
+        args.Cancel = True
+        if self.interface.closable:
+            self.interface.on_close()
 
     ####################################################################################
     # Window properties
@@ -143,8 +182,23 @@ class Window:
     ####################################################################################
 
     def close(self):
-        self.interface.factory.not_implemented("Window.close")
-        self.native.Close()
+        if self.native is None or self.native.AppWindow is None:
+            return
+
+        interface = self.interface
+        self._programmatic_close = True
+        if interface is not None and interface.app._impl._current_window is self:
+            interface.app._impl._current_window = None
+        if self.container is not None:
+            self.container.content = None
+            self.container.on_refresh = None
+        self.interface = None
+        self.native.Content = None
+        self.native.AppWindow.Destroy()
+        self.is_activated = False
+        self.container = None
+        self.content_native = None
+        self.native = None
 
     def set_app(self, app):
         """Sets the window icon to be the icon associated to the given app."""
@@ -167,8 +221,19 @@ class Window:
     ####################################################################################
 
     def content_refreshed(self, container):
-        # TODO: Minimum size constraints: overlapped_presenter.PreferredMinimumWidth.
-        self.interface.factory.not_implemented("Window.content_refreshed")
+        if self.interface is None or self.interface.content is None:
+            return
+
+        min_width = self.interface.content.layout.min_width
+        min_height = self.interface.content.layout.min_height
+        size = self.get_size()
+        extra_width = size.width - container.width
+        extra_height = size.height - container.height
+
+        width = max(size.width, min_width + extra_width)
+        height = max(size.height, min_height + extra_height)
+        if (width, height) != size:
+            self.set_size((width, height))
 
     def set_content(self, widget):
         """Sets the content of the window's container to be the given Toga widget."""
@@ -188,16 +253,23 @@ class Window:
     ####################################################################################
 
     def get_size(self) -> Size:
-        """Gets the size of the window in effective pixels (CSS pixels)."""
-        # self.native.Bounds returns values in effective pixels, but they are not always
-        # integer values.
+        """Gets the outer size of the window in effective pixels (CSS pixels)."""
+        if self.get_window_state() == WindowState.MINIMIZED:
+            return self._cached_window_size
+
+        return self._appwindow_size()
+
+    def _appwindow_size(self):
+        pixels_to_css = self.get_current_screen().pixels_to_css
+        size = self.native.AppWindow.Size
         return Size(
-            round_pixels(self.native.Bounds.Width),
-            round_pixels(self.native.Bounds.Height),
+            pixels_to_css(size.Width),
+            pixels_to_css(size.Height),
         )
 
     def set_size(self, size: SizeT):
         """Sets the size of the window in effective pixels (CSS pixels)."""
+        self._cached_window_size = Size(*size)
         pixels_to_physical = self.get_current_screen().pixels_to_physical
 
         self.native.AppWindow.Resize(
@@ -238,11 +310,15 @@ class Window:
 
     def get_visible(self) -> bool:
         """Returns True if the window is visible and False otherwise."""
-        return self.native.Visible
+        if self.native is None or self.native.AppWindow is None:
+            return False
+        return self.native.AppWindow.IsVisible
 
     def hide(self):
         """Hides but does not destroy the window."""
-        self.native.Hide()
+        if self.interface.app._impl._current_window is self:
+            self.interface.app._impl._current_window = None
+        self.native.AppWindow.Hide()
 
     ####################################################################################
     # Window state.
@@ -267,9 +343,7 @@ class Window:
             # Assume presenter.Kind == AppWindowPresenterKind.Overlapped, since the
             # third alternative 'CompactOverlay' is not implemented by Toga.
             # learn.microsoft.com/en-us/windows/apps/develop/ui/manage-app-windows
-            #
-            # Hence, cast presenter as an instance of OverlappedPresenter.
-            overlapped_presenter = OverlappedPresenter(value=presenter.value)
+            overlapped_presenter = self._overlapped_presenter()
 
             if overlapped_presenter.State == OverlappedPresenterState.Maximized:
                 return WindowState.MAXIMIZED
@@ -296,13 +370,13 @@ class Window:
                 self.native.AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen)
 
             case WindowState.NORMAL:
-                self.native.AppWindow.Presenter.Restore()
+                self._overlapped_presenter().Restore()
 
             case WindowState.MINIMIZED:
-                self.native.AppWindow.Presenter.Minimize()
+                self._overlapped_presenter().Minimize()
 
             case _:
-                self.native.AppWindow.Presenter.Maximize()
+                self._overlapped_presenter().Maximize()
 
     ####################################################################################
     # Window capabilities
@@ -335,7 +409,10 @@ class MainWindow(Window):
         Grid.SetColumn(self.container_native, 0)
         self.content_native.Children.Append(self.container_native)
 
-        self.container = Container(self.container_native)
+        self.container = Container(
+            self.container_native,
+            on_refresh=self.content_refreshed,
+        )
 
         # Attach the content to the window.
         self.native.Content = self.content_native

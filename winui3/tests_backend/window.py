@@ -1,4 +1,5 @@
 from win32more import unbox_value
+from win32more.Microsoft.UI.Interop import GetWindowFromWindowId
 from win32more.Microsoft.UI.Windowing import OverlappedPresenterState
 from win32more.Microsoft.UI.Xaml import Window as NativeWindow
 from win32more.Microsoft.UI.Xaml.Controls import (
@@ -8,14 +9,23 @@ from win32more.Microsoft.UI.Xaml.Controls import (
     ToolTipService,
 )
 from win32more.Windows.Foundation.Collections import IVector
+from win32more.Windows.Win32.Foundation import LPARAM, WPARAM
+from win32more.Windows.Win32.UI.WindowsAndMessaging import (
+    SC_MINIMIZE,
+    SC_RESTORE,
+    WM_CLOSE,
+    WM_SYSCOMMAND,
+    PostMessage,
+)
 
 from toga import Size
 from toga.constants import WindowState
 
+from .dialogs import DialogsMixin
 from .probe import BaseProbe
 
 
-class WindowProbe(BaseProbe):
+class WindowProbe(BaseProbe, DialogsMixin):
     supports_closable = False
     supports_minimizable = True
     supports_move_while_hidden = True
@@ -42,7 +52,12 @@ class WindowProbe(BaseProbe):
         await self.redraw("Closing window")
 
     def close(self):
-        self.native.Close()
+        PostMessage(
+            GetWindowFromWindowId(self.native.AppWindow.Id),
+            WM_CLOSE,
+            WPARAM(0),
+            LPARAM(0),
+        )
 
     @property
     def content_size(self):
@@ -68,10 +83,23 @@ class WindowProbe(BaseProbe):
         return self.instantaneous_state == WindowState.MINIMIZED
 
     def minimize(self):
-        self.native.AppWindow.Presenter.Minimize()
+        if not self.window.minimizable:
+            return
+
+        PostMessage(
+            GetWindowFromWindowId(self.native.AppWindow.Id),
+            WM_SYSCOMMAND,
+            WPARAM(SC_MINIMIZE),
+            LPARAM(0),
+        )
 
     def unminimize(self):
-        self.native.AppWindow.Presenter.Restore()
+        PostMessage(
+            GetWindowFromWindowId(self.native.AppWindow.Id),
+            WM_SYSCOMMAND,
+            WPARAM(SC_RESTORE),
+            LPARAM(0),
+        )
 
     @property
     def container_probe(self):

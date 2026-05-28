@@ -6,7 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
-- Active slice: app/window and coverage-gap triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, screen metadata/image capture, window image capture, Table/Tree select-all keyboard shortcuts, OptionContainer content-based rehinting and tab icons, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
+- Active slice: app/window and coverage-gap triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, screen metadata/image capture, window image capture, Table/Tree select-all keyboard shortcuts, OptionContainer content-based rehinting and tab icons, TimeInput backend-enforced limits, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -14,7 +14,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 - MultilineTextInput cannot inherit TextInput focus tracking directly because the core `MultilineTextInput` interface does not expose `on_gain_focus`/`on_lose_focus`; its backend must use native focus without dispatching TextInput-only focus handlers.
 - Image support currently uses a PNG-backed `NativeImage` wrapper around WinUI `BitmapImage`; broader JPEG/GIF/BMP/TIFF decode and encode support remains a follow-up.
 - Slider uses native WinUI `Slider` with value/min/max/tick support, pointer press/release events, and focused Testbed coverage.
-- DateInput uses native WinUI `DatePicker` with native min/max dates; TimeInput uses native WinUI `TimePicker` with minute-resolution values and backend-tracked min/max limits because the native control does not expose limit properties or seconds selection.
+- DateInput uses native WinUI `DatePicker` with native min/max dates; TimeInput uses native WinUI `TimePicker` with minute-resolution values and backend-enforced min/max limits because the native control does not expose limit properties or seconds selection.
 
 ## Operating Rules
 
@@ -89,6 +89,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/test_images.py` and `tests/widgets/test_imageview.py` passed together with `18 passed`.
 - `tests/widgets/test_slider.py` passed with `15 passed`.
 - `tests/widgets/test_dateinput.py` and `tests/widgets/test_timeinput.py` passed together with `26 passed`.
+- `tests/widgets/test_timeinput.py` now passes with `13 passed`; backend-enforced min/max clamping is covered through the WinUI probe even though native `TimePicker` has no min/max properties.
 - `tests/widgets/test_splitcontainer.py` passed with `8 passed`.
 - `tests/widgets/test_optioncontainer.py` previously passed with `8 passed, 1 skipped`; this has been superseded by the later `9 passed` result with content-based rehinting enabled.
 - `tests/widgets/test_optioncontainer.py` now passes with `9 passed`; content-based rehinting is enabled after fixing off-screen tab minimum-size propagation, and tab icons are enabled through native `TabViewItem.IconSource`/`ImageIconSource`.
@@ -133,7 +134,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/widgets/textinput.py`: adds minimal but tested WinUI `TextBox` support for value, placeholder, readonly, text alignment, focus/change/confirm events, validation state, font-sensitive rehinting, and single-line behavior.
 - `winui3/src/toga_winui3/widgets/multilinetextinput.py`: adds native WinUI multiline `TextBox` support for value, placeholder, readonly, text alignment, focus, change events, newline normalization, multiline wrapping, and programmatic scrolling through the TextBox template's internal `ScrollViewer`.
 - `winui3/src/toga_winui3/widgets/dateinput.py`: adds native WinUI `DatePicker` support for value, native min/max dates, change events, color/background, enabled state, and size hints.
-- `winui3/src/toga_winui3/widgets/timeinput.py`: adds native WinUI `TimePicker` support for minute-resolution value changes, backend-tracked min/max times, change events, color/background, enabled state, and size hints.
+- `winui3/src/toga_winui3/widgets/timeinput.py`: adds native WinUI `TimePicker` support for minute-resolution value changes, backend-enforced min/max times, change events, color/background, enabled state, and size hints.
 - `winui3/src/toga_winui3/widgets/optioncontainer.py`: adds native WinUI `TabView`/`TabViewItem` support for tab insertion/removal, selection, enabled state, text changes, tab icons through `IconSource`, content sizing, selection notifications, cleanup-safe event/container references, and disabled-tab probing.
 - `winui3/src/toga_winui3/widgets/slider.py`: adds native WinUI `Slider` support for value, min/max, discrete tick counts, focus, enabled state, programmatic and user/probe changes, and pointer press/release events.
 - `winui3/src/toga_winui3/widgets/splitcontainer.py`: adds native WinUI `Grid` and `Thumb` support for two-pane SplitContainer layout, vertical and horizontal directions, flex-based proportions, explicit splitter moves, zero-size recovery, and synchronous pane size reporting for Toga child layout.
@@ -180,7 +181,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/textinput.py`: adds TextInput probing for value, placeholder, readonly, alignment, typing, confirm key, selection, and cursor placement.
 - `winui3/tests_backend/widgets/multilinetextinput.py`: adds MultilineTextInput probing for normalized values, document extent, scroll position, typed input, selection, placeholder behavior, and marks mouse-wheel simulation unsupported.
 - `winui3/tests_backend/widgets/dateinput.py`: probes native `DatePicker` values, native min/max dates, and day-by-day simulated changes.
-- `winui3/tests_backend/widgets/timeinput.py`: probes native `TimePicker` minute-resolution values and simulated minute changes; native min/max limit probing is marked unsupported because WinUI `TimePicker` lacks limit properties.
+- `winui3/tests_backend/widgets/timeinput.py`: probes native `TimePicker` minute-resolution values, simulated minute changes, and backend-enforced min/max limits.
 - `winui3/tests_backend/widgets/optioncontainer.py`: probes native `TabView`, tab selection, disabled tab behavior, no-tab-limit behavior, content-based rehinting, and tab icons.
 - `winui3/tests_backend/widgets/slider.py`: probes native `Slider` position, tick count, user/probe changes, and press/release events.
 - `winui3/tests_backend/widgets/splitcontainer.py`: probes the native `Grid` container, programmatic splitter moves, and records that direction changes intentionally reset rather than preserve the prior split position.
@@ -214,7 +215,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
 - Image support is currently PNG-only for load/save/data roundtrips; JPEG, GIF, BMP, and TIFF support need either WinRT encoder/decoder coverage or a deliberately chosen dependency.
-- TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are tracked by the backend rather than enforced by native picker properties.
+- TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are enforced by the backend rather than native picker properties.
 - Table cell icons and widgets are not supported; cell widget values emit a warning and render as missing values, and icon values render text only.
 - Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell icons and widgets are not supported, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
 - DetailedList actions and refresh are currently exposed through backend/probe hooks, not native swipe, pull-to-refresh, or context-menu UI.
@@ -230,7 +231,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after OptionContainer tab icons passed with `9 passed`.
+- Latest review date: 2026-05-28 after TimeInput backend-enforced limits passed with `13 passed`.
 - Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer now has content-based rehint coverage and native tab-icon support through `TabViewItem.IconSource`; no active OptionContainer probe gap is known.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.
@@ -244,7 +245,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - Native menu probing, command activation, shortcut display text, and key conversion are now implemented and covered by the app/key Testbed suites; physical accelerator invocation through synthetic OS input is still a coverage gap.
 - Generic dialogs now have construction/result plumbing and full Testbed dialog coverage, but most dialog classes are not yet real native WinUI UI; replace the deterministic first-pass backend with native `ContentDialog`, `FileSavePicker`, `FileOpenPicker`, and folder picker implementations before claiming production dialog parity.
 - Status icons now have backend-managed state and full Testbed status icon coverage, but they do not create real Windows notification-area icons; investigate Windows App SDK/AppNotification or Win32 `Shell_NotifyIcon` integration for production parity.
-- Widget probe gaps from the latest scan are concentrated in custom fonts, undo/redo, Canvas visual rendering, MultilineTextInput mouse-wheel simulation, Selection/NumberInput/PasswordInput text alignment, Table and Tree cell widgets/icons plus remaining boundary-shortcut limits, TimeInput seconds/native limits, and WebView content root URLs/JavaScript exception behavior.
+- Widget probe gaps from the latest scan are concentrated in custom fonts, undo/redo, Canvas visual rendering, MultilineTextInput mouse-wheel simulation, Selection/NumberInput/PasswordInput text alignment, Table and Tree cell widgets/icons plus remaining boundary-shortcut limits, TimeInput seconds/native picker-limit properties, and WebView content root URLs/JavaScript exception behavior.
 - WebView now has broad Testbed coverage but not failure-mode coverage for missing WebView2 runtime/initialization failures; keep that as a defensive hardening task rather than blocking Salut use.
 
 ## Next Work
@@ -259,4 +260,4 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed implementation slice: `Add WinUI option tab icons`.
+Milestone commit message for the latest completed implementation slice: `Enforce WinUI time input limits`.

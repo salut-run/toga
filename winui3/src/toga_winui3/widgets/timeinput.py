@@ -57,7 +57,13 @@ class TimeInput(Widget):
         self._max_time = normalize_time(value)
 
     def native_event_time_changed(self, sender, args):
-        self.interface.on_change()
+        value = self.get_value()
+        if value < self._min_time:
+            self.set_value(self._min_time)
+        elif value > self._max_time:
+            self.set_value(self._max_time)
+        else:
+            self.interface.on_change()
 
     def rehint(self):
         desired_size = self.measure_unconstrained()

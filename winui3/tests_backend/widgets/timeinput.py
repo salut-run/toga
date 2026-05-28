@@ -9,17 +9,24 @@ from .base import SimpleProbe
 
 class TimeInputProbe(SimpleProbe):
     native_class = TimePicker
-    supports_limits = False
+    supports_limits = True
     supports_seconds = False
 
     @property
     def value(self):
         return py_time(self.native.Time)
 
+    @property
+    def min_value(self):
+        return self.impl.get_min_time()
+
+    @property
+    def max_value(self):
+        return self.impl.get_max_time()
+
     async def change(self, delta):
         value = (
             datetime.combine(date.today(), self.value) + timedelta(minutes=delta)
         ).time()
-        if self.impl.get_min_time() <= value <= self.impl.get_max_time():
-            self.native.Time = native_time(value)
+        self.native.Time = native_time(value)
         await self.redraw(f"Change value by {delta} minutes")

@@ -1,4 +1,5 @@
-from win32more.Microsoft.UI.Xaml.Controls import TabView
+from win32more.Microsoft.UI.Xaml.Controls import ImageIconSource, TabView
+from win32more.Microsoft.UI.Xaml.Media.Imaging import BitmapImage
 
 from .base import SimpleProbe
 
@@ -22,4 +23,16 @@ class OptionContainerProbe(SimpleProbe):
         await self.redraw(message)
 
     def assert_tab_icon(self, index, expected):
-        assert self.widget.content[index].icon is None
+        actual = self.impl.get_option_icon(index)
+        native_icon = self.impl.tabs[index].IconSource
+        if expected is None:
+            assert actual is None
+            assert native_icon is None
+        else:
+            assert actual is not None
+            assert actual.path.name == expected
+            image_source = native_icon.as_(ImageIconSource).ImageSource
+            assert image_source is not None
+            assert image_source.as_(BitmapImage).UriSource.RawUri.endswith(
+                f"{expected}-windows.png"
+            )

@@ -4,6 +4,7 @@ from weakref import ref
 from travertino.size import at_least
 from win32more.Microsoft.UI.Xaml.Controls import (
     Canvas,
+    ImageIconSource,
     TabView,
     TabViewItem,
     TabViewWidthMode,
@@ -36,7 +37,7 @@ class OptionPaneContainer(Container):
 
 
 class OptionContainer(Widget):
-    uses_icons = False
+    uses_icons = True
 
     def create(self):
         self.native = TabView()
@@ -50,6 +51,7 @@ class OptionContainer(Widget):
 
         self.tabs = []
         self.containers = []
+        self.icons = []
         self._width = None
         self._height = None
         self._current_index = None
@@ -86,7 +88,9 @@ class OptionContainer(Widget):
 
         self.tabs.insert(index, tab)
         self.containers.insert(index, container)
+        self.icons.insert(index, None)
         self.native.TabItems.InsertAt(index, tab)
+        self.set_option_icon(index, icon)
 
         if len(self.tabs) == 1:
             self._current_index = 0
@@ -99,6 +103,7 @@ class OptionContainer(Widget):
         container = self.containers.pop(index)
         container.content = None
         del self.tabs[index]
+        del self.icons[index]
         self._refresh_tabs(force_refresh=True)
 
     def set_option_enabled(self, index, enabled):
@@ -114,10 +119,16 @@ class OptionContainer(Widget):
         return self.tabs[index].Header.as_(TextBlock).Text
 
     def set_option_icon(self, index, value):
-        pass
+        self.icons[index] = value
+        if value is None:
+            self.tabs[index].IconSource = None
+        else:
+            icon_source = ImageIconSource()
+            icon_source.ImageSource = value._impl.bitmap_image(16)
+            self.tabs[index].IconSource = icon_source
 
     def get_option_icon(self, index):
-        return None
+        return self.icons[index]
 
     def get_current_tab_index(self):
         index = int_value(self.native.SelectedIndex)

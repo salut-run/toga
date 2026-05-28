@@ -8,7 +8,7 @@ ROW_HEIGHT = 32
 
 class TableProbe(SimpleProbe):
     native_class = Grid
-    supports_icons = 0
+    supports_icons = 2
     supports_keyboard_shortcuts = True
     supports_keyboard_boundary_shortcuts = False
     supports_widgets = False
@@ -33,7 +33,9 @@ class TableProbe(SimpleProbe):
     def assert_cell_content(self, row, col, value=None, icon=None, widget=None):
         if widget:
             pytest.skip("WinUI doesn't support widgets in Tables")
-        assert self.impl._row_cache[row][col] == value
+        cell = self.impl._row_cache[row][col]
+        assert cell.text == value
+        assert cell.icon == icon
 
     @property
     def max_scroll_position(self):

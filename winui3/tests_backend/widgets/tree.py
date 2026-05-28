@@ -55,7 +55,9 @@ class TreeProbe(SimpleProbe):
             pytest.skip("WinUI doesn't support widgets in Trees")
 
         state = self.impl.state_for_path(row_path)
-        assert state.values[col] == value
+        cell = state.values[col]
+        assert cell.text == value
+        assert cell.icon == icon
 
     @property
     def max_scroll_position(self):

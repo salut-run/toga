@@ -15,7 +15,8 @@ from .widgets.box import Box
 from .widgets.button import Button
 
 # from .widgets.canvas import Canvas
-# from .widgets.dateinput import DateInput
+from .widgets.dateinput import DateInput
+
 # from .widgets.detailedlist import DetailedList
 from .widgets.divider import Divider
 from .widgets.imageview import ImageView
@@ -37,8 +38,8 @@ from .widgets.switch import Switch
 
 # from .widgets.table import Table
 from .widgets.textinput import TextInput
+from .widgets.timeinput import TimeInput
 
-# from .widgets.timeinput import TimeInput
 # from .widgets.tree import Tree
 from .widgets.webview import WebView
 from .window import MainWindow, Window
@@ -73,7 +74,7 @@ __all__ = [
     "Box",
     "Button",
     # "Canvas",
-    # "DateInput",
+    "DateInput",
     # "DetailedList",
     "Divider",
     "ImageView",
@@ -91,7 +92,7 @@ __all__ = [
     "Switch",
     # "Table",
     "TextInput",
-    # "TimeInput",
+    "TimeInput",
     # "Tree",
     "WebView",
     # Windows

@@ -202,7 +202,7 @@ class AppProbe(BaseProbe, DialogsMixin):
         pytest.xfail("WinUI 3 doesn't require initial document support.")
 
     def open_document_by_drag(self, document_path):
-        pytest.xfail("WinUI 3 doesn't support opening documents by drag yet.")
+        self.main_window._impl.open_dropped_files([document_path])
 
     def has_status_icon(self, status_icon):
         return status_icon._impl.native is not None

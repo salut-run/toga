@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ctypes import byref
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from win32more import UInt32
@@ -36,15 +37,18 @@ from win32more.Microsoft.UI.Xaml.Controls import (
     ToolTipService,
 )
 from win32more.Microsoft.UI.Xaml.Media import MicaBackdrop
+from win32more.Windows.ApplicationModel.DataTransfer import DataPackageOperation
+from win32more.Windows.Foundation import AsyncStatus
 from win32more.Windows.Foundation.Collections import IVector
 from win32more.Windows.Graphics import PointInt32, SizeInt32
 
 from toga import App
 from toga.command import Group, Separator
-from toga.constants import WindowState
+from toga.constants import TRANSPARENT, WindowState
 from toga.handlers import WeakrefCallable
 from toga.types import Position, Size
 
+from .colors import native_brush
 from .container import Container
 from .libs.misc import column_definition_star, row_definition_auto, row_definition_star
 from .libs.screenshot import capture_client
@@ -83,6 +87,7 @@ class Window:
         self._in_fullscreen_mode = False
         self._in_presentation_mode = False
         self._previous_state = WindowState.NORMAL
+        self._drop_operations = []
 
         self.native.Activated += WeakrefCallable(self.native_event_activated)
         self.native.AppWindow.Changed += WeakrefCallable(self.native_event_changed)
@@ -91,6 +96,7 @@ class Window:
     def create_content(self):
         """Construct the container."""
         self.content_native = Canvas()
+        self._enable_file_drop(self.content_native)
         self.container = Container(
             self.content_native,
             on_refresh=self.content_refreshed,
@@ -206,6 +212,58 @@ class Window:
         args.Cancel = True
         if self.interface.closable:
             self.interface.on_close()
+
+    def native_event_drag_over(self, sender, args):
+        if self.interface and self.interface.app.documents.types:
+            args.AcceptedOperation = DataPackageOperation.Copy
+        else:
+            args.AcceptedOperation = DataPackageOperation.None_
+        args.Handled = True
+
+    def native_event_drop(self, sender, args):
+        if self.interface is None or not self.interface.app.documents.types:
+            return
+
+        args.AcceptedOperation = DataPackageOperation.Copy
+        args.Handled = True
+
+        operation = args.DataView.GetStorageItemsAsync()
+        self._drop_operations.append(operation)
+
+        def completed(async_info, async_status):
+            try:
+                if async_status == AsyncStatus.Completed and self.interface is not None:
+                    paths = self._paths_from_storage_items(async_info.GetResults())
+                    self.interface.app.loop.call_soon_threadsafe(
+                        self.open_dropped_files,
+                        paths,
+                    )
+            finally:
+                if operation in self._drop_operations:
+                    self._drop_operations.remove(operation)
+
+        operation.Completed = completed
+
+    def _paths_from_storage_items(self, items):
+        paths = []
+        for item in items:
+            if path := getattr(item, "Path", None):
+                paths.append(Path(path))
+        return paths
+
+    def _enable_file_drop(self, native):
+        native.AllowDrop = True
+        if hasattr(native, "Background") and native.Background is None:
+            native.Background = native_brush(TRANSPARENT)
+        native.DragOver += WeakrefCallable(self.native_event_drag_over)
+        native.Drop += WeakrefCallable(self.native_event_drop)
+
+    def open_dropped_files(self, paths):
+        if self.interface is None:
+            return
+
+        for path in paths:
+            self.interface.app._open_initial_document(path)
 
     ####################################################################################
     # Window properties
@@ -504,6 +562,7 @@ class MainWindow(Window):
         # Row 0 is allocated for the menu
         # Row 1 is allocated for toolbar
         self.content_native = Grid()
+        self._enable_file_drop(self.content_native)
         self.content_native.ColumnDefinitions.Append(column_definition_star(1))
         self.content_native.RowDefinitions.Append(row_definition_auto())
         self.content_native.RowDefinitions.Append(row_definition_auto())
@@ -513,6 +572,7 @@ class MainWindow(Window):
         self.content_native.VerticalAlignment = VerticalAlignment.Stretch
 
         self.container_native = Canvas()
+        self._enable_file_drop(self.container_native)
         Grid.SetRow(self.container_native, 2)
         Grid.SetColumn(self.container_native, 0)
         self.content_native.Children.Append(self.container_native)

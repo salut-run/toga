@@ -4,6 +4,7 @@ from time import time
 
 from win32more.Microsoft.UI.Xaml.Controls import WebView2
 
+import toga
 from toga_winui3.widgets.mapview import LEAFLET_BASE_URL, LEAFLET_VERSION, MAP_TILE_URL
 
 from .base import SimpleProbe
@@ -99,3 +100,28 @@ class MapViewProbe(SimpleProbe):
             assert not state["hasMap"]
 
         return state
+
+    async def assert_webview2_initialization_failure(self):
+        executed_javascript = []
+        original_execute = self.impl._execute
+
+        try:
+            self.impl._execute = executed_javascript.append
+            self.impl._handle_webview2_initialization_failure("probe failure")
+
+            assert self.impl.corewebview2_available is False
+            assert self.impl.backlog is None
+            assert self.impl._webview2_initialization_error == "probe failure"
+
+            self.widget.location = (-33.955, 115.075)
+            self.widget.zoom = 12
+            self.widget.pins.add(toga.MapPin((-31.9602, 115.8325), title="Kings Park"))
+            await self.redraw("MapView WebView2 initialization failure simulated")
+
+            assert self.widget.location.lat == -33.955
+            assert self.widget.location.lng == 115.075
+            assert self.widget.zoom == 12
+            assert self.impl.pin_count == 1
+            assert executed_javascript == []
+        finally:
+            self.impl._execute = original_execute

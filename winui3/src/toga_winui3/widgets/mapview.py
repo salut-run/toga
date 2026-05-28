@@ -163,6 +163,7 @@ class MapView(Widget):
         self._zoom = 11
         self._pins = set()
         self._pin_lookup = {}
+        self._webview2_initialization_error = None
 
         self_ref = ref(self)
 
@@ -176,17 +177,13 @@ class MapView(Widget):
 
     def _initialize_core_webview2(self, async_info, async_status):
         if async_status != AsyncStatus.Completed:  # pragma: nocover
-            self.corewebview2_available = False
-            self.backlog = None
-            print(f"MapView WebView2 initialization failed: {async_status}")
+            self._handle_webview2_initialization_failure(async_status)
             return
 
         try:
             async_info.GetResults()
         except Exception as exc:  # pragma: nocover
-            self.corewebview2_available = False
-            self.backlog = None
-            print(f"MapView WebView2 initialization failed: {exc}")
+            self._handle_webview2_initialization_failure(exc)
             return
 
         self.corewebview2_available = True
@@ -195,6 +192,12 @@ class MapView(Widget):
             self.native_event_web_message_received
         )
         self.native.NavigateToString(MAPVIEW_HTML_CONTENT)
+
+    def _handle_webview2_initialization_failure(self, error):
+        self.corewebview2_available = False
+        self.backlog = None
+        self._webview2_initialization_error = str(error)
+        print(f"MapView WebView2 initialization failed: {error}")
 
     def native_event_navigation_completed(self, sender, args):
         if self.backlog is not None:
@@ -221,7 +224,9 @@ class MapView(Widget):
         asyncio.create_task(execute())
 
     def _invoke(self, javascript):
-        if self.backlog is None:
+        if self.corewebview2_available is False:
+            return
+        elif self.backlog is None:
             self._execute(javascript)
         else:
             self.backlog.append(javascript)

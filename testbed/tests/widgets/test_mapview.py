@@ -183,6 +183,14 @@ async def test_map_surface(widget, probe):
     )
 
 
+async def test_webview2_initialization_failure(widget, probe):
+    """WebView2 initialization failures are handled safely."""
+    if not hasattr(probe, "assert_webview2_initialization_failure"):
+        pytest.skip("WebView2 initialization failure simulation not supported")
+
+    await probe.assert_webview2_initialization_failure()
+
+
 async def test_select_pin(widget, probe, on_select):
     """Pins can be selected."""
 

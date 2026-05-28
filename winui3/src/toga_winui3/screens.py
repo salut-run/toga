@@ -9,6 +9,8 @@ from toga import App
 from toga.screens import Screen as ScreenInterface
 from toga.types import Position, Size
 
+from .libs.screenshot import capture_screen
+
 
 class Screen:
     _instances = {}
@@ -72,7 +74,7 @@ class Screen:
         native_bounds = self.native.OuterBounds
         return Size(
             self.pixels_to_css(native_bounds.Width),
-            self.pixels_to_css(native_bounds.Width),
+            self.pixels_to_css(native_bounds.Height),
         )
 
     ####################################################################################
@@ -80,4 +82,10 @@ class Screen:
     ####################################################################################
 
     def get_image_data(self):
-        print("Not yet implemented on WinUI3 - Screen.get_image_data")
+        native_bounds = self.native.OuterBounds
+        return capture_screen(
+            native_bounds.X,
+            native_bounds.Y,
+            native_bounds.Width,
+            native_bounds.Height,
+        )

@@ -6,7 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
-- Active slice: app/window probe triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, window image capture, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
+- Active slice: app/window probe triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, screen metadata/image capture, window image capture, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -59,6 +59,7 @@ $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-no
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_detailedlist.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/canvas/test_canvas.py --tb=short
 $env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/widgets/test_mapview.py --tb=short
+$env:TOGA_BACKEND='toga_winui3'; uvx --python cpython-3.13.13-windows-aarch64-none briefcase dev --app testbed-winui3 --test -- tests/app/test_screens.py tests/window/test_window.py::test_as_image --tb=short
 ```
 
 Run this from `C:\Users\jezdez\Code\toga`:
@@ -115,6 +116,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/test_keys.py`, full `tests/app/test_app.py`, and `tests/app/test_desktop.py::test_menu_exit` passed together with `36 passed`; native menu command wiring still works after adding `KeyboardAccelerator` objects, and the previous `Command shortcuts` `NotImplementedWarning` no longer appears.
 - `tests/window/test_window.py::test_as_image` passed with `1 passed`; WinUI `Window.as_image()` now captures a native window-client screenshot and the probe accounts for screen scale.
 - `tests/window/test_window.py` still passed with `58 passed` after enabling WinUI window screenshot capture.
+- `tests/app/test_screens.py` and `tests/window/test_window.py::test_as_image` passed together with `5 passed`; WinUI screen names, origins, sizes, screen screenshots, and the refactored window screenshot path are covered.
 - Earlier tiny app/Testbed startup checks passed after the backend registration and `testbed-winui3` app setup.
 
 ## Latest Completed Slice
@@ -149,11 +151,13 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/src/toga_winui3/command.py`: updates WinUI command enablement to use native XAML `IsEnabled` with the core-computed enabled value, which applies to both menu flyout items and toolbar buttons.
 - `winui3/src/toga_winui3/keys.py`: adds WinUI key and modifier conversion for letters, digits, function keys, common punctuation, special keys, numpad digits/operators, and shifted display values using WinUI `VirtualKey` and `VirtualKeyModifiers`.
 - `winui3/src/toga_winui3/command.py`: adds native WinUI `KeyboardAccelerator` support for menu commands with shortcut display text, enabled-state propagation, and accelerator invocation through the command action.
+- `winui3/src/toga_winui3/libs/screenshot.py`: provides shared Win32 GDI screenshot capture and PNG encoding for WinUI windows and screens.
 - `winui3/src/toga_winui3/dialogs.py`: adds first-pass dialog backend classes for Info, Question, Confirm, Error, StackTrace, SaveFile, OpenFile, and SelectFolder dialogs so dialog objects construct and Testbed probes can drive deterministic results.
 - `winui3/src/toga_winui3/app.py`: updates existing windows when the app icon changes so `app.icon = ...` takes effect after startup, and adds a native WinUI `ContentDialog` About dialog.
 - `winui3/src/toga_winui3/app.py`: makes cursor hide/show idempotent using the backend cursor-visible flag, and returns only visible windows from `get_current_window()` so hidden windows cannot remain current through cached or activated WinUI state.
 - `winui3/src/toga_winui3/container.py`: removes native children by WinUI vector identity instead of by the Python widget-list index, because the hidden staging panel also lives in the native `Children` collection and made content reattachment fail, and exposes an optional refresh callback so root window containers can respond to content minimum-size changes.
 - `winui3/src/toga_winui3/container.py`: uses temporary explicit native dimensions as a fallback while a just-shown WinUI window has bounds but not yet a nonzero XAML `ActualSize`, allowing the first Toga layout pass to be measured synchronously.
+- `winui3/src/toga_winui3/screens.py`: reports screen height from the native `OuterBounds.Height` instead of width, and implements `Screen.get_image_data()` using the shared screenshot helper.
 - `winui3/src/toga_winui3/window.py`: adds native WinUI `CommandBar` toolbar support with `AppBarButton`, `AppBarSeparator`, labels, tooltips, icons, command enablement, automatic group separators, removal/clearing behavior, probe activation hooks, stores/applies the current app icon for each window, activates windows when shown, helps the app maintain a deterministic current-window value, routes user close attempts through cancellable `AppWindow.Closing`, honors explicit close through native XAML `Window.Close()`, clears current-window state on hide/close, reports outer `AppWindow` size instead of client bounds, grows windows when content minimum size exceeds the current client area, preserves logical size while minimized, suppresses resize callbacks for normal/minimized state changes, models fullscreen/presentation state transitions with the native overlapped/maximized presenter plus Toga state flags, hides WinUI menu/toolbar chrome during presentation mode, restores the pre-presentation screen on exit, exits app presentation when another window state changes, runs an immediate first layout after showing a window, and detaches native/content references on close so closed windows can be garbage-collected.
 - `winui3/src/toga_winui3/window.py`: adds `Window.get_image_data()` by capturing the WinUI window client area with Win32 GDI, converting BGRA pixels to PNG, and returning real screenshot bytes for `Window.as_image()`.
 - `winui3/src/toga_winui3/statusicons.py`: adds backend-managed status icon state for menu and button status icons, including menu grouping, separators, primary menu fallback, command dispatch, add/remove state, and unknown-group validation.
@@ -162,6 +166,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/fonts.py`: adds a WinUI font probe mixin.
 - `winui3/tests_backend/probe.py`: makes width and height probes prefer finite assigned layout dimensions before falling back to actual size.
 - `winui3/tests_backend/probe.py`: compares screenshot sizes in physical pixels using the active WinUI screen scale and a one-pixel compositor rounding tolerance.
+- `winui3/tests_backend/screens.py`: adds Screen probing for screen metadata and `Screen.as_image()` coverage.
 - `winui3/tests_backend/widgets/base.py`: adds color/background probing for `SolidColorBrush`, including reporting fully transparent black as Toga `TRANSPARENT`, and falls back to backend `get_enabled()` for native elements without `IsEnabled`.
 - `winui3/tests_backend/widgets/button.py`: probes Button `TextBlock` content, targets that content for font assertions, and verifies native icon image size.
 - `winui3/tests_backend/widgets/imageview.py`: probes the `Border`/XAML `Image` split and aspect-preserving stretch mode.
@@ -217,7 +222,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after the full desktop app suite passed with `11 passed, 23 xfailed` and the full window suite still passed with `58 passed`.
+- Latest review date: 2026-05-28 after the full screen app suite passed with `4 passed` and the full window suite still passed with `58 passed`.
 - Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer is now green enough for backend parity tracking; its remaining content-based rehint and tab-icon gaps are recorded above.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.
@@ -246,4 +251,4 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed implementation slice: `Add WinUI window screenshots`.
+Milestone commit message for the latest completed implementation slice: `Add WinUI screen screenshots`.

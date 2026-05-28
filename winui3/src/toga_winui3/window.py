@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import struct
-import zlib
-from ctypes import byref, create_string_buffer, sizeof
+from ctypes import byref
 from typing import TYPE_CHECKING
 
 from win32more import UInt32
@@ -40,25 +38,6 @@ from win32more.Microsoft.UI.Xaml.Controls import (
 from win32more.Microsoft.UI.Xaml.Media import MicaBackdrop
 from win32more.Windows.Foundation.Collections import IVector
 from win32more.Windows.Graphics import PointInt32, SizeInt32
-from win32more.Windows.Win32.Foundation import RECT
-from win32more.Windows.Win32.Graphics.Gdi import (
-    BI_RGB,
-    BITMAPINFO,
-    BITMAPINFOHEADER,
-    CAPTUREBLT,
-    DIB_RGB_COLORS,
-    SRCCOPY,
-    BitBlt,
-    CreateCompatibleBitmap,
-    CreateCompatibleDC,
-    DeleteDC,
-    DeleteObject,
-    GetDC,
-    GetDIBits,
-    ReleaseDC,
-    SelectObject,
-)
-from win32more.Windows.Win32.UI.WindowsAndMessaging import GetClientRect
 
 from toga import App
 from toga.command import Separator
@@ -68,6 +47,7 @@ from toga.types import Position, Size
 
 from .container import Container
 from .libs.misc import column_definition_star, row_definition_auto, row_definition_star
+from .libs.screenshot import capture_client
 from .screens import Screen as ScreenImpl
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -503,100 +483,7 @@ class Window:
 
     def get_image_data(self):
         hwnd = GetWindowFromWindowId(self.native.AppWindow.Id)
-        rect = RECT()
-        GetClientRect(hwnd, byref(rect))
-        width = rect.right - rect.left
-        height = rect.bottom - rect.top
-
-        if width <= 0 or height <= 0:
-            width = max(1, round(self.native.Bounds.Width))
-            height = max(1, round(self.native.Bounds.Height))
-
-        window_dc = GetDC(hwnd)
-        if not window_dc:
-            raise RuntimeError("Unable to get window device context")
-
-        memory_dc = CreateCompatibleDC(window_dc)
-        if not memory_dc:
-            ReleaseDC(hwnd, window_dc)
-            raise RuntimeError("Unable to create compatible device context")
-
-        bitmap = CreateCompatibleBitmap(window_dc, width, height)
-        if not bitmap:
-            DeleteDC(memory_dc)
-            ReleaseDC(hwnd, window_dc)
-            raise RuntimeError("Unable to create screenshot bitmap")
-
-        previous_bitmap = SelectObject(memory_dc, bitmap)
-        try:
-            if not BitBlt(
-                memory_dc,
-                0,
-                0,
-                width,
-                height,
-                window_dc,
-                0,
-                0,
-                SRCCOPY | CAPTUREBLT,
-            ):
-                raise RuntimeError("Unable to capture window image")
-
-            bitmap_info = BITMAPINFO()
-            bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER)
-            bitmap_info.bmiHeader.biWidth = width
-            bitmap_info.bmiHeader.biHeight = -height
-            bitmap_info.bmiHeader.biPlanes = 1
-            bitmap_info.bmiHeader.biBitCount = 32
-            bitmap_info.bmiHeader.biCompression = BI_RGB
-            bitmap_info.bmiHeader.biSizeImage = width * height * 4
-
-            pixels = create_string_buffer(width * height * 4)
-            scan_lines = GetDIBits(
-                memory_dc,
-                bitmap,
-                0,
-                height,
-                pixels,
-                byref(bitmap_info),
-                DIB_RGB_COLORS,
-            )
-            if scan_lines != height:
-                raise RuntimeError("Unable to read window image pixels")
-
-            return self._png_from_bgra(width, height, pixels.raw)
-        finally:
-            SelectObject(memory_dc, previous_bitmap)
-            DeleteObject(bitmap)
-            DeleteDC(memory_dc)
-            ReleaseDC(hwnd, window_dc)
-
-    def _png_from_bgra(self, width, height, bgra):
-        rgba = bytearray(len(bgra))
-        for offset in range(0, len(bgra), 4):
-            rgba[offset] = bgra[offset + 2]
-            rgba[offset + 1] = bgra[offset + 1]
-            rgba[offset + 2] = bgra[offset]
-            rgba[offset + 3] = 255
-
-        def chunk(kind, data):
-            return (
-                struct.pack(">I", len(data))
-                + kind
-                + data
-                + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-            )
-
-        stride = width * 4
-        raw = b"".join(
-            b"\x00" + rgba[y * stride : (y + 1) * stride] for y in range(height)
-        )
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw))
-            + chunk(b"IEND", b"")
-        )
+        return capture_client(hwnd)
 
 
 class MainWindow(Window):

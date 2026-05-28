@@ -206,7 +206,7 @@ class AppProbe(BaseProbe, DialogsMixin):
         self.main_window._impl.open_dropped_files([document_path])
 
     def has_status_icon(self, status_icon):
-        return status_icon._impl.native is not None
+        return status_icon._impl.has_native_icon()
 
     def status_menu_items(self, status_icon):
         if not hasattr(status_icon._impl, "menu"):

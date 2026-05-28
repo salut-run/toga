@@ -67,10 +67,10 @@ class AppProbe(BaseProbe):
         self.app.exit()
 
     def activate_menu_about(self):
-        pytest.skip("WinUI 3 about dialog is not implemented yet.")
+        self._activate_menu_item(["Help", f"About {self.formal_name}"])
 
     async def close_about_dialog(self):
-        pytest.skip("WinUI 3 about dialog is not implemented yet.")
+        self.app._impl._about_dialog.Hide()
 
     def activate_menu_visit_homepage(self):
         self._activate_menu_item(["Help", "Visit homepage"])

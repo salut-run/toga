@@ -1,6 +1,7 @@
 from win32more import String
 from win32more.Microsoft.UI.Windowing import DisplayArea
 from win32more.Microsoft.UI.Xaml import ApplicationTheme
+from win32more.Microsoft.UI.Xaml.Controls import ContentDialog, TextBlock
 from win32more.Windows.Win32.Media.Audio import SND_ALIAS, SND_ASYNC, PlaySound
 from win32more.Windows.Win32.UI.WindowsAndMessaging import ShowCursor
 
@@ -31,6 +32,7 @@ class App:
 
         self.loop = WinUI3ProactorEventLoop()
         self.native_instance: NativeApp | None = None
+        self._about_dialog = None
 
     def create(self):
         self.native = NativeApp
@@ -117,7 +119,36 @@ class App:
         PlaySound(String("SystemAsterisk"), None, SND_ALIAS | SND_ASYNC)
 
     def show_about_dialog(self):
-        self.interface.factory.not_implemented("App.show_about_dialog")
+        message_parts = []
+        if self.interface.version is not None:
+            message_parts.append(
+                f"{self.interface.formal_name} v{self.interface.version}"
+            )
+        else:
+            message_parts.append(self.interface.formal_name)
+
+        if self.interface.author is not None:
+            message_parts.append(f"Author: {self.interface.author}")
+        if self.interface.description is not None:
+            message_parts.append(f"\n{self.interface.description}")
+        if self.interface.home_page is not None:
+            message_parts.append(f"\n{self.interface.home_page}")
+
+        content = TextBlock()
+        content.Text = "\n".join(message_parts)
+
+        self._about_dialog = ContentDialog()
+        self._about_dialog.Title = f"About {self.interface.formal_name}"
+        self._about_dialog.Content = content
+        self._about_dialog.CloseButtonText = "OK"
+        self._about_dialog.XamlRoot = (
+            self.interface.main_window._impl.content_native.XamlRoot
+        )
+        self._about_dialog.Closed += self.native_event_about_dialog_closed
+        self._about_dialog.ShowAsync()
+
+    def native_event_about_dialog_closed(self, sender, args):
+        self._about_dialog = None
 
     ####################################################################################
     # Cursor control

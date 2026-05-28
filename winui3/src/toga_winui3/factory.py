@@ -2,7 +2,7 @@ import warnings
 
 from toga import NotImplementedWarning
 
-# from . import dialogs
+from . import dialogs
 from .app import App
 from .command import Command
 from .fonts import Font
@@ -57,7 +57,7 @@ __all__ = [
     "Icon",
     "Image",
     "Paths",
-    # "dialogs",
+    "dialogs",
     # Status Icons
     "MenuStatusIcon",
     "SimpleStatusIcon",

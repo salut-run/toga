@@ -106,6 +106,7 @@ class Window:
             self.interface.on_lose_focus()
         else:
             self.is_activated = True
+            self.interface.app._impl._current_window = self
             self.interface.on_gain_focus()
 
     def native_event_changed(self, sender, args):
@@ -158,6 +159,8 @@ class Window:
             self.interface.content.refresh()
 
         self.native.AppWindow.Show()
+        self.interface.app._impl._current_window = self
+        self.native.Activate()
 
     ####################################################################################
     # Window content and resources.

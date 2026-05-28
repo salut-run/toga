@@ -65,7 +65,7 @@ Font = "toga_winui3.fonts:Font"
 Icon = "toga_winui3.icons:Icon"
 Image = "toga_winui3.images:Image"
 Paths = "toga_winui3.paths:Paths"
-# dialogs = "toga_winui3.dialogs"
+dialogs = "toga_winui3.dialogs"
 resources = "toga_winui3.resources"
 
 # Hardware

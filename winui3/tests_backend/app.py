@@ -11,10 +11,11 @@ from win32more.Microsoft.UI.Xaml.Controls import (
 
 from toga.command import Separator
 
+from .dialogs import DialogsMixin
 from .probe import BaseProbe
 
 
-class AppProbe(BaseProbe):
+class AppProbe(BaseProbe, DialogsMixin):
     formal_name = "Toga Testbed (WinUI 3)"
     supports_key = False
     supports_key_mod3 = False

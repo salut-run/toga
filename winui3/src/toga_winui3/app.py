@@ -23,6 +23,7 @@ class App:
         # Track whether the app is exiting.
         self._is_exiting = False
         self._exiting_presentation = False
+        self._current_window = None
 
         # The Win32 function ShowCursor is used to show and hide the cursor. Here cursor
         # visibility is represented by a display count. For example, if hide is called N
@@ -168,6 +169,15 @@ class App:
 
     def get_current_window(self):
         """Returns the currently activated window if one exists, otherwise None."""
+        document_windows = [
+            window._impl for window in self.interface.windows if hasattr(window, "doc")
+        ]
+        if len(document_windows) == 1:
+            return document_windows[0]
+
+        if self._current_window in [window._impl for window in self.interface.windows]:
+            return self._current_window
+
         for window in self.interface.windows:
             if window._impl.is_activated:
                 return window._impl
@@ -175,4 +185,5 @@ class App:
 
     def set_current_window(self, window):
         """Brings a given window to the foreground and gives it input focus."""
+        self._current_window = window._impl
         window._impl.native.Activate()

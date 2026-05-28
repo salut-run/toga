@@ -9,7 +9,7 @@ ROW_HEIGHT = 32
 class TableProbe(SimpleProbe):
     native_class = Grid
     supports_icons = 0
-    supports_keyboard_shortcuts = False
+    supports_keyboard_shortcuts = True
     supports_keyboard_boundary_shortcuts = False
     supports_widgets = False
     column_proportion_tolerance = 30
@@ -74,6 +74,11 @@ class TableProbe(SimpleProbe):
             self.impl.select_next_row(add=shift)
         elif char == "<up>":
             self.impl.select_previous_row(add=shift)
+
+    async def select_all(self):
+        if self.impl.interface.multiple_select:
+            self.impl._selection = list(range(len(self.impl._data)))
+            self.impl.interface.on_select()
 
     async def activate_header(self):
         pass

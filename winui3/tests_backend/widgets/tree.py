@@ -10,7 +10,7 @@ ROW_HEIGHT = 32
 
 class TreeProbe(SimpleProbe):
     native_class = Grid
-    supports_keyboard_shortcuts = False
+    supports_keyboard_shortcuts = True
     supports_keyboard_boundary_shortcuts = False
     supports_widgets = False
     selection_cleared_on_insert_delete = True
@@ -87,7 +87,9 @@ class TreeProbe(SimpleProbe):
             self.impl.select_previous_visible()
 
     async def select_all(self):
-        pass
+        if self.impl.interface.multiple_select:
+            self.impl._selection = [state.node for state in self.impl._visible_states]
+            self.impl.interface.on_select()
 
     async def assert_item_mouse_hover(self, row_path):
         state = self.impl.state_for_path(row_path)

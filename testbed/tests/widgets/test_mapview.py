@@ -167,6 +167,22 @@ async def test_add_pins(widget, probe, on_select):
     assert probe.pin_count == 0
 
 
+async def test_map_surface(widget, probe):
+    """The native map surface can be inspected."""
+    if not hasattr(probe, "assert_map_surface"):
+        pytest.skip("Map surface inspection not supported on this platform")
+
+    await probe.assert_map_surface("Map surface has initialized")
+
+    kings_park = toga.MapPin((-31.9602, 115.8325), title="Kings Park")
+    widget.pins.add(kings_park)
+    await probe.wait_for_map("Kings Park pin has been added")
+    await probe.assert_map_surface(
+        "Map surface reflects Kings Park pin",
+        expected_pin_count=1,
+    )
+
+
 async def test_select_pin(widget, probe, on_select):
     """Pins can be selected."""
 

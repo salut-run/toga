@@ -13,52 +13,118 @@ from toga.handlers import WeakrefCallable
 
 from .base import Widget
 
-MAPVIEW_HTML_CONTENT = """<!DOCTYPE html>
+LEAFLET_VERSION = "1.9.4"
+LEAFLET_BASE_URL = f"https://unpkg.com/leaflet@{LEAFLET_VERSION}/dist"
+MAP_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+MAPVIEW_HTML_CONTENT = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="{LEAFLET_BASE_URL}/leaflet.css">
     <style>
-        html, body, #map {
+        html, body, #map {{
             width: 100%;
             height: 100%;
             margin: 0;
-        }
+        }}
     </style>
 </head>
 <body>
     <div id="map"></div>
     <script>
-        const map = L.map("map").setView([-31.9559, 115.8606], 11);
-        const pins = {};
+        const togaMapProvider = {{
+            leafletVersion: {json.dumps(LEAFLET_VERSION)},
+            leafletScript: {json.dumps(f"{LEAFLET_BASE_URL}/leaflet.js")},
+            leafletStylesheet: {json.dumps(f"{LEAFLET_BASE_URL}/leaflet.css")},
+            tileUrl: {json.dumps(MAP_TILE_URL)},
+            attribution: "&copy; OpenStreetMap contributors",
+        }};
+        const mapElement = document.getElementById("map");
+        const pins = {{}};
+        const pendingActions = [];
+        let map = null;
+        let tileLayer = null;
+        let currentLocation = [-31.9559, 115.8606];
+        let currentZoom = 11;
 
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 20,
-            attribution: "&copy; OpenStreetMap contributors"
-        }).addTo(map);
+        window.togaMapProvider = togaMapProvider;
+        mapElement.dataset.mapStatus = "loading";
 
-        function addPin(id, latitude, longitude, popup) {
-            removePin(id);
-            const marker = L.marker([latitude, longitude]).addTo(map);
-            marker.bindPopup(popup);
-            marker.on("click", () => chrome.webview.postMessage(id));
-            pins[id] = marker;
-        }
+        function markProviderUnavailable() {{
+            if (!map) {{
+                mapElement.dataset.mapStatus = "provider-unavailable";
+            }}
+        }}
 
-        function updatePin(id, latitude, longitude, popup) {
-            if (pins[id]) {
-                pins[id].setLatLng([latitude, longitude]).setPopupContent(popup);
-            }
-        }
+        function withMap(action) {{
+            if (map) {{
+                action();
+            }} else {{
+                pendingActions.push(action);
+            }}
+        }}
 
-        function removePin(id) {
-            if (pins[id]) {
-                map.removeLayer(pins[id]);
-                delete pins[id];
-            }
-        }
+        function initializeMap() {{
+            if (typeof L === "undefined") {{
+                markProviderUnavailable();
+                return;
+            }}
+
+            map = L.map("map").setView(currentLocation, currentZoom);
+            tileLayer = L.tileLayer(togaMapProvider.tileUrl, {{
+                maxZoom: 20,
+                attribution: togaMapProvider.attribution
+            }}).addTo(map);
+            mapElement.dataset.mapStatus = "ready";
+
+            while (pendingActions.length) {{
+                pendingActions.shift()();
+            }}
+        }}
+
+        function setLocation(latitude, longitude) {{
+            currentLocation = [latitude, longitude];
+            withMap(() => map.panTo(currentLocation));
+        }}
+
+        function setZoom(zoom) {{
+            currentZoom = zoom;
+            withMap(() => map.setZoom(zoom));
+        }}
+
+        function addPin(id, latitude, longitude, popup) {{
+            withMap(() => {{
+                removePin(id);
+                const marker = L.marker([latitude, longitude]).addTo(map);
+                marker.bindPopup(popup);
+                marker.on("click", () => chrome.webview.postMessage(id));
+                pins[id] = marker;
+            }});
+        }}
+
+        function updatePin(id, latitude, longitude, popup) {{
+            withMap(() => {{
+                if (pins[id]) {{
+                    pins[id].setLatLng([latitude, longitude]).setPopupContent(popup);
+                }}
+            }});
+        }}
+
+        function removePin(id) {{
+            withMap(() => {{
+                if (pins[id]) {{
+                    map.removeLayer(pins[id]);
+                    delete pins[id];
+                }}
+            }});
+        }}
     </script>
+    <script
+        src="{LEAFLET_BASE_URL}/leaflet.js"
+        onload="initializeMap()"
+        onerror="markProviderUnavailable()"
+    ></script>
 </body>
 </html>
 """
@@ -165,14 +231,14 @@ class MapView(Widget):
 
     def set_location(self, position):
         self._location = toga.LatLng(*position)
-        self._invoke(f"map.panTo({latlng(self._location)});")
+        self._invoke(f"setLocation({self._location.lat}, {self._location.lng});")
 
     def get_zoom(self):
         return self._zoom
 
     def set_zoom(self, zoom):
         self._zoom = zoom
-        self._invoke(f"map.setZoom({zoom});")
+        self._invoke(f"setZoom({zoom});")
 
     def tile_longitude_span(self):
         return 360 / (2**self._zoom)

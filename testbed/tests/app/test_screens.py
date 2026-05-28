@@ -1,5 +1,6 @@
 from importlib import import_module
 
+import pytest
 from PIL.Image import Image as PILImage
 
 from toga.images import Image as TogaImage
@@ -34,6 +35,16 @@ async def test_size(app):
         assert len(size) == 2
         # Check that neither the width or height is zero.
         assert all(isinstance(val, int) and val > 0 for val in size)
+
+
+async def test_dpi_scaling(app):
+    """Screen sizes are converted using the platform DPI scale."""
+    for screen in app.screens:
+        probe = screen_probe(screen)
+        if not hasattr(probe, "assert_dpi_scaling"):
+            pytest.skip("Screen DPI scaling inspection not supported")
+
+        probe.assert_dpi_scaling()
 
 
 async def test_as_image(app):

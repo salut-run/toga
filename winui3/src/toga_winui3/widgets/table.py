@@ -69,6 +69,16 @@ class Table(SourceListenerCompatibility, MulticolumnListView, ListListener):
             current = -1 if self._selection is None else self._selection
         self.select_row(min(current + 1, len(self._data) - 1), add=add)
 
+    def select_next_row_wrapping(self):
+        if not len(self._data):
+            return
+
+        if self.interface.multiple_select:
+            current = max(self._selection, default=-1)
+        else:
+            current = -1 if self._selection is None else self._selection
+        self.select_row((current + 1) % len(self._data))
+
     def select_previous_row(self, add=False):
         if not len(self._data):
             return
@@ -82,6 +92,10 @@ class Table(SourceListenerCompatibility, MulticolumnListView, ListListener):
         else:
             current = 0 if self._selection is None else self._selection
         self.select_row(max(current - 1, 0), add=add)
+
+    def select_last_row(self):
+        if len(self._data):
+            self.select_row(len(self._data) - 1)
 
     def activate_row(self, row):
         self.select_row(row)

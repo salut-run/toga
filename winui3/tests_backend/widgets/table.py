@@ -10,7 +10,7 @@ class TableProbe(SimpleProbe):
     native_class = Grid
     supports_icons = 2
     supports_keyboard_shortcuts = True
-    supports_keyboard_boundary_shortcuts = False
+    supports_keyboard_boundary_shortcuts = True
     supports_widgets = False
     column_proportion_tolerance = 30
 
@@ -72,10 +72,14 @@ class TableProbe(SimpleProbe):
         self.impl.select_first_row()
 
     async def type_character(self, char, *, shift=False, ctrl=False, alt=False):
-        if char in {"a", "<down>"}:
+        if char == "a":
+            self.impl.select_next_row_wrapping()
+        elif char == "<down>":
             self.impl.select_next_row(add=shift)
         elif char == "<up>":
             self.impl.select_previous_row(add=shift)
+        elif char == "<end>":
+            self.impl.select_last_row()
 
     async def select_all(self):
         if self.impl.interface.multiple_select:

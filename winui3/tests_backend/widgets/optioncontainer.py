@@ -1,4 +1,3 @@
-import pytest
 from win32more.Microsoft.UI.Xaml.Controls import TabView
 
 from .base import SimpleProbe
@@ -10,7 +9,7 @@ class OptionContainerProbe(SimpleProbe):
     disabled_tab_selectable = False
 
     def assert_supports_content_based_rehint(self):
-        pytest.skip("Content-based rehinting not yet supported on this platform")
+        pass
 
     def select_tab(self, index):
         if self.tab_enabled(index):

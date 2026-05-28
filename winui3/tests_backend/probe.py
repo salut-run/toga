@@ -13,6 +13,9 @@ class BaseProbe(FontMixin):
         self.native = native
 
     async def redraw(self, message=None, delay=0, wait_for=None):
+        if wait_for and not delay:
+            delay = 1
+
         if delay or wait_for:
             if wait_for is None:
                 await asyncio.sleep(delay)

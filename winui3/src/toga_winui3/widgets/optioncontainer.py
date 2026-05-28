@@ -11,6 +11,7 @@ from win32more.Microsoft.UI.Xaml.Controls import (
 )
 
 from toga.handlers import WeakrefCallable
+from toga.style.pack import NONE
 from toga_winui3.container import Container
 
 from .base import Widget
@@ -133,8 +134,16 @@ class OptionContainer(Widget):
 
     def content_refreshed(self, container):
         if container.content:
-            container.min_width = container.content.interface.layout.min_width
-            container.min_height = container.content.interface.layout.min_height
+            layout = container.content.interface.layout
+            style = container.content.interface.style
+            container.min_width = max(
+                layout.min_width,
+                0 if style.width == NONE else style.width,
+            )
+            container.min_height = max(
+                layout.min_height,
+                0 if style.height == NONE else style.height,
+            )
 
         old_intrinsic = (
             self.interface.intrinsic.width,
@@ -146,7 +155,10 @@ class OptionContainer(Widget):
             self.interface.intrinsic.height,
         )
         if old_intrinsic != new_intrinsic:
-            self.interface.refresh()
+            if self.interface.window and self.interface.window.content:
+                self.interface.window.content.refresh()
+            else:
+                self.interface.refresh()
 
     def _create_header(self, text):
         header = TextBlock()

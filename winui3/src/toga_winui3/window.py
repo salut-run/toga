@@ -285,8 +285,8 @@ class Window:
         min_width = self.interface.content.layout.min_width
         min_height = self.interface.content.layout.min_height
         size = self.get_size()
-        extra_width = size.width - container.width
-        extra_height = size.height - container.height
+        extra_width = max(0, size.width - container.width)
+        extra_height = max(0, size.height - container.height)
 
         width = max(size.width, min_width + extra_width)
         height = max(size.height, min_height + extra_height)

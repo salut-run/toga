@@ -181,13 +181,27 @@ class AppProbe(BaseProbe, DialogsMixin):
         pytest.xfail("WinUI 3 doesn't support opening documents by drag yet.")
 
     def has_status_icon(self, status_icon):
-        return False
+        return status_icon._impl.native is not None
 
     def status_menu_items(self, status_icon):
-        return None
+        if not hasattr(status_icon._impl, "menu"):
+            return None
+
+        return [
+            {
+                f"About {self.formal_name}": "**ABOUT**",
+                "Exit": "**EXIT**",
+            }.get(item["text"], item["text"])
+            for item in status_icon._impl.menu
+        ]
 
     def activate_status_icon_button(self, item_id):
-        pytest.skip("WinUI 3 status icons are not implemented yet.")
+        self.app.status_icons[item_id]._impl.winui_click()
 
     def activate_status_menu_item(self, item_id, title):
-        pytest.skip("WinUI 3 status icons are not implemented yet.")
+        for item in self.app.status_icons[item_id]._impl.menu:
+            if item["text"] == title:
+                item["command"].action()
+                return
+
+        raise AssertionError(f"No status menu item named {title!r}")

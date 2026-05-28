@@ -136,6 +136,18 @@ async def test_activate_button_icon(app, app_probe):
     app.cmd_action.assert_called_once_with(app.status_icons["button"])
 
 
+async def test_status_icon_taskbar_restart(app, app_probe):
+    """Status icons can recover after the shell recreates the taskbar."""
+    if not hasattr(app_probe, "simulate_status_icon_taskbar_restart"):
+        return
+
+    for status_icon in [app.status1, app.status2, app.status_button]:
+        assert app_probe.has_status_icon(status_icon)
+        app_probe.simulate_status_icon_taskbar_restart(status_icon)
+        await app_probe.redraw("Status icon restored after taskbar restart")
+        assert app_probe.has_status_icon(status_icon)
+
+
 async def test_activate_status_menu_item(app, app_probe):
     """A menu status item can be activated."""
     app_probe.activate_status_menu_item("second", "Action 5")

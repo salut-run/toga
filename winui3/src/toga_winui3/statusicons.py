@@ -27,6 +27,7 @@ from win32more.Windows.Win32.UI.WindowsAndMessaging import (
     GetCursorPos,
     PostMessageW,
     RegisterClassW,
+    RegisterWindowMessageW,
     SetForegroundWindow,
     TrackPopupMenu,
 )
@@ -35,6 +36,8 @@ import toga
 from toga.command import Group, Separator
 
 WM_STATUS_ICON = WM_USER + 1
+WM_TASKBAR_CREATED = RegisterWindowMessageW("TaskbarCreated")
+NIN_KEYSELECT = Shell.NIN_SELECT + 1
 
 _ICON_IDS = count(1)
 _MENU_IDS = count(1000)
@@ -94,6 +97,9 @@ class StatusIcon:
             if msg == WM_STATUS_ICON:
                 self._handle_status_message(lparam)
                 return 0
+            elif msg == WM_TASKBAR_CREATED:
+                self._restore_after_taskbar_created()
+                return 0
             return DefWindowProcW(hwnd, msg, wparam, lparam)
 
         self._callback = WNDPROC(wndproc)
@@ -135,13 +141,23 @@ class StatusIcon:
     def _add(self):
         self._notify_data = self._notify_icon_data()
         Shell.Shell_NotifyIconW(Shell.NIM_ADD, byref(self._notify_data))
+        self._notify_data.uVersion = Shell.NOTIFYICON_VERSION_4
+        Shell.Shell_NotifyIconW(Shell.NIM_SETVERSION, byref(self._notify_data))
 
     def _modify(self):
         self._notify_data = self._notify_icon_data()
         Shell.Shell_NotifyIconW(Shell.NIM_MODIFY, byref(self._notify_data))
 
+    def _restore_after_taskbar_created(self):
+        if self.native:
+            self._add()
+
+    def _simulate_taskbar_restart(self):
+        Shell.Shell_NotifyIconW(Shell.NIM_DELETE, byref(self._notify_data))
+        PostMessageW(self._hwnd, WM_TASKBAR_CREATED, 0, 0)
+
     def _handle_status_message(self, message):
-        if message == WM_LBUTTONUP:
+        if message in {WM_LBUTTONUP, Shell.NIN_SELECT, NIN_KEYSELECT}:
             self.winui_click()
         elif message in {WM_RBUTTONUP, WM_CONTEXTMENU}:
             self.show_menu()

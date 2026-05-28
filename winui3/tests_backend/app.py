@@ -10,6 +10,7 @@ from win32more.Microsoft.UI.Xaml.Controls import (
     MenuFlyoutSubItem,
 )
 from win32more.Windows.System import VirtualKeyModifiers
+from win32more.Windows.Win32.UI import Shell
 from win32more.Windows.Win32.UI.Input.KeyboardAndMouse import (
     INPUT,
     INPUT_KEYBOARD,
@@ -282,7 +283,10 @@ class AppProbe(BaseProbe, DialogsMixin):
         ]
 
     def activate_status_icon_button(self, item_id):
-        self.app.status_icons[item_id]._impl.winui_click()
+        self.app.status_icons[item_id]._impl._handle_status_message(Shell.NIN_SELECT)
+
+    def simulate_status_icon_taskbar_restart(self, status_icon):
+        status_icon._impl._simulate_taskbar_restart()
 
     def activate_status_menu_item(self, item_id, title):
         for item in self.app.status_icons[item_id]._impl.menu:

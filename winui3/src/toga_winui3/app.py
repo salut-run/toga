@@ -1,7 +1,18 @@
-from win32more import String
+import shlex
+from pathlib import Path
+
+from win32more import ComError, String
 from win32more.Microsoft.UI.Windowing import DisplayArea
 from win32more.Microsoft.UI.Xaml import ApplicationTheme
 from win32more.Microsoft.UI.Xaml.Controls import ContentDialog, TextBlock
+from win32more.Microsoft.Windows.AppLifecycle import (
+    AppInstance,
+    ExtendedActivationKind,
+)
+from win32more.Windows.ApplicationModel.Activation import (
+    ICommandLineActivatedEventArgs,
+    IFileActivatedEventArgs,
+)
 from win32more.Windows.Win32.Media.Audio import SND_ALIAS, SND_ASYNC, PlaySound
 from win32more.Windows.Win32.UI.WindowsAndMessaging import ShowCursor
 
@@ -34,12 +45,27 @@ class App:
         self.loop = WinUI3ProactorEventLoop()
         self.native_instance: NativeApp | None = None
         self._about_dialog = None
+        self._activation_arguments = None
 
     def create(self):
         self.native = NativeApp
 
         # Populate the main window as soon as the event loop is running.
-        self.loop.call_soon_threadsafe(self.interface._startup)
+        self.loop.call_soon_threadsafe(self._startup)
+
+    def _startup(self):
+        if self._activation_arguments is None:
+            self.interface._startup()
+            return
+
+        import sys
+
+        original_argv = sys.argv
+        sys.argv = [original_argv[0], *[str(arg) for arg in self._activation_arguments]]
+        try:
+            self.interface._startup()
+        finally:
+            sys.argv = original_argv
 
     ####################################################################################
     # Commands and menus
@@ -73,6 +99,77 @@ class App:
     def main_loop(self):
         self.create()
         self.loop.run_forever(self)
+
+    def capture_activation_arguments(self, launch_args):
+        self._activation_arguments = []
+
+        try:
+            activation_args = AppInstance.GetCurrent().GetActivatedEventArgs()
+        except (ComError, OSError):
+            activation_args = None
+
+        if activation_args is not None:
+            self._activation_arguments.extend(
+                self._arguments_from_app_activation(activation_args)
+            )
+
+        if not self._activation_arguments and launch_args is not None:
+            self._activation_arguments.extend(
+                self._split_command_line(launch_args.Arguments)
+            )
+
+    def _arguments_from_app_activation(self, activation_args):
+        if activation_args.Kind == ExtendedActivationKind.File:
+            return self._arguments_from_file_activation(activation_args)
+        elif activation_args.Kind == ExtendedActivationKind.CommandLineLaunch:
+            return self._arguments_from_command_line_activation(activation_args)
+        else:
+            return []
+
+    def _arguments_from_file_activation(self, activation_args):
+        try:
+            file_args = activation_args.Data.as_(IFileActivatedEventArgs)
+        except (ComError, OSError):
+            return []
+
+        return [
+            Path(file.Path) for file in file_args.Files if getattr(file, "Path", None)
+        ]
+
+    def _arguments_from_command_line_activation(self, activation_args):
+        try:
+            command_line_args = activation_args.Data.as_(ICommandLineActivatedEventArgs)
+        except (ComError, OSError):
+            return []
+
+        operation = command_line_args.Operation
+        return self._split_command_line(
+            operation.Arguments,
+            current_directory=operation.CurrentDirectoryPath,
+        )
+
+    def _split_command_line(self, arguments, current_directory=None):
+        if not arguments:
+            return []
+
+        try:
+            values = shlex.split(arguments)
+        except ValueError:
+            values = [arguments]
+
+        if current_directory:
+            return [
+                path
+                if (path := Path(value)).is_absolute()
+                else Path(current_directory) / path
+                for value in values
+            ]
+        else:
+            return values
+
+    def open_initial_documents(self, filenames):
+        for filename in filenames:
+            self.interface._open_initial_document(filename)
 
     def set_icon(self, icon):
         for window in self.interface.windows:

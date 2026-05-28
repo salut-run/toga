@@ -199,7 +199,8 @@ class AppProbe(BaseProbe, DialogsMixin):
         await self.redraw("Restore to standard app")
 
     async def open_initial_document(self, monkeypatch, document_path):
-        pytest.xfail("WinUI 3 doesn't require initial document support.")
+        self.app._impl.open_initial_documents([document_path])
+        await self.redraw("Initial document has been triggered")
 
     def open_document_by_drag(self, document_path):
         self.main_window._impl.open_dropped_files([document_path])

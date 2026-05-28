@@ -19,6 +19,7 @@ def native_app_launched(loop, native_app, args):
     loop.queue_timer.Tick += loop.tick
 
     loop.app.native_instance = native_app.current()
+    loop.app.capture_activation_arguments(args)
 
     loop.enqueue_tick()
 

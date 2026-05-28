@@ -6,7 +6,7 @@ This file is the persistent coordination state for the experimental `toga-winui3
 
 - Last updated: 2026-05-28.
 - Active Toga branch: `winui3-backend`.
-- Active slice: app/window and coverage-gap triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, screen metadata/image capture, window image capture, Table/Tree select-all keyboard shortcuts and cell icons, Table keyboard boundary shortcuts, WinUI custom font registration, OptionContainer content-based rehinting and tab icons, TimeInput backend-enforced limits, Selection/NumberInput/PasswordInput text alignment, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
+- Active slice: app/window and coverage-gap triage is underway after the completed widget entry point sweep; native toolbar, menu probing, app icon updates, about dialogs, first-pass generic dialog entry points, document save-as routing, backend-managed status icon behavior, focused window lifecycle behavior, app exit/cursor/current-window cleanup, focused app presentation behavior, full desktop app suite stabilization, native command shortcut conversion/display, screen metadata/image capture, window image capture, Table/Tree select-all keyboard shortcuts, cell icons, and cell widgets, Table keyboard boundary shortcuts, WinUI custom font registration, OptionContainer content-based rehinting and tab icons, TimeInput backend-enforced limits, Selection/NumberInput/PasswordInput text alignment, and the full window suite are complete, and remaining app/window work focuses on true native fullscreen/presentation parity, document launch/drag behavior, real keyboard accelerator injection coverage, and WinUI-specific DPI coverage.
 - Branch lineage: this branch builds on Oliver's WinUI 3 proof-of-concept seed commit `595679a2a` and the local scaffolding commit `02d039f25 Add experimental WinUI 3 backend scaffolding`.
 - Related Salut state: stable Windows support lives on Salut branch `fix/windows-support-revival`; Salut WinUI experimentation lives on `experiment/winui3-backend`.
 - The latest completed WinUI slice builds out Image, ImageView, Button, Label, TextInput, MultilineTextInput, DateInput, TimeInput, OptionContainer, Slider, SplitContainer, Switch, Selection, Divider, NumberInput, PasswordInput, ProgressBar, ScrollContainer, ActivityIndicator, Table, WebView, font handling, staging measurement, color probes, and backend probes.
@@ -98,6 +98,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_table.py` and `tests/widgets/test_tree.py` passed together with `51 passed` after enabling WinUI Table and Tree cell icon rendering/probe assertions.
 - `tests/widgets/test_table.py` now passes with `26 passed` after enabling WinUI Table keyboard boundary shortcut coverage for End and wrapping letter navigation.
 - `tests/test_fonts.py` now passes with `19 passed` after enabling WinUI registered font-file loading, invalid font-file validation, arbitrary system font validation, and custom font probes.
+- `tests/widgets/test_table.py` and `tests/widgets/test_tree.py` now pass together with `51 passed` after enabling native WinUI child-widget hosting in Table and Tree cells.
 - `tests/widgets/test_detailedlist.py` passed with `15 passed`.
 - `tests/widgets/canvas/test_canvas.py` passed with `14 passed, 31 skipped`; the skipped tests are the visual raster reference suite because WinUI Canvas drawing is not implemented yet.
 - `tests/widgets/test_mapview.py` passed with `7 passed`.
@@ -218,8 +219,8 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - Custom variable font face selection remains unsupported; registered TTF/OTF font files now load through XAML file URI `FontFamily` sources, and arbitrary system font names are validated against the Windows font registry.
 - Image support is currently PNG-only for load/save/data roundtrips; JPEG, GIF, BMP, and TIFF support need either WinRT encoder/decoder coverage or a deliberately chosen dependency.
 - TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are enforced by the backend rather than native picker properties.
-- Table cell widgets are not supported; cell widget values emit a warning and render as missing values, while cell icons are supported in all columns through native WinUI `Image` cells.
-- Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell widgets are not supported, cell icons are supported in all columns through native WinUI `Image` cells, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
+- Table cell icons and widgets are supported in all columns through native WinUI `Image` cells and hosted child controls.
+- Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell icons and widgets are supported in all columns through native WinUI `Image` cells and hosted child controls, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
 - DetailedList actions and refresh are currently exposed through backend/probe hooks, not native swipe, pull-to-refresh, or context-menu UI.
 - Canvas uses native WinUI `CanvasControl` for hosting but does not yet render Toga drawing actions with Win2D; the visual reference tests are skipped, and `get_image_data()` currently exports only the canvas background/bounds rather than drawn content.
 - MapView uses a native WinUI host with backend-managed state, not a real map tile control; there is no map tile rendering, pan/gesture support, provider integration, geolocation, or platform map service bridge yet.
@@ -233,11 +234,11 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after WinUI custom font registration passed with `19 passed`.
+- Latest review date: 2026-05-28 after Table and Tree cell widget hosting passed with `51 passed`.
 - Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer now has content-based rehint coverage and native tab-icon support through `TabViewItem.IconSource`; no active OptionContainer probe gap is known.
-- Table is now green with native `ListView` rows, backend-managed table state, select-all keyboard shortcuts, keyboard boundary shortcut coverage, and cell icons in all columns; its remaining cell widget gap is recorded above.
-- Tree is now green with native `ListView` rows, backend-managed expansion/selection state, select-all keyboard shortcuts, and cell icons in all columns; its remaining cell widget/native-TreeView gaps are recorded above.
+- Table is now green with native `ListView` rows, backend-managed table state, select-all keyboard shortcuts, keyboard boundary shortcut coverage, and cell icons/widgets in all columns.
+- Tree is now green with native `ListView` rows, backend-managed expansion/selection state, select-all keyboard shortcuts, and cell icons/widgets in all columns; its remaining native-TreeView gap is recorded above.
 - DetailedList is now green with native `ListView` rows and backend-managed action/refresh hooks; its remaining native gesture/menu gaps are recorded above.
 - Canvas has first-pass host/event/export coverage but not visual drawing parity; implement Win2D drawing and image export before considering Canvas complete.
 - MapView is green at the Toga state/probe level but is not a real map renderer; implement a native or WebView-backed map provider before considering MapView complete.
@@ -247,7 +248,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - Native menu probing, command activation, shortcut display text, and key conversion are now implemented and covered by the app/key Testbed suites; physical accelerator invocation through synthetic OS input is still a coverage gap.
 - Generic dialogs now have construction/result plumbing and full Testbed dialog coverage, but most dialog classes are not yet real native WinUI UI; replace the deterministic first-pass backend with native `ContentDialog`, `FileSavePicker`, `FileOpenPicker`, and folder picker implementations before claiming production dialog parity.
 - Status icons now have backend-managed state and full Testbed status icon coverage, but they do not create real Windows notification-area icons; investigate Windows App SDK/AppNotification or Win32 `Shell_NotifyIcon` integration for production parity.
-- Widget probe gaps from the latest scan are concentrated in custom variable font face selection, undo/redo, Canvas visual rendering, MultilineTextInput mouse-wheel simulation, Table and Tree cell widgets, TimeInput seconds/native picker-limit properties, and WebView content root URLs/JavaScript exception behavior.
+- Widget probe gaps from the latest scan are concentrated in custom variable font face selection, undo/redo, Canvas visual rendering, MultilineTextInput mouse-wheel simulation, TimeInput seconds/native picker-limit properties, and WebView content root URLs/JavaScript exception behavior.
 - WebView now has broad Testbed coverage but not failure-mode coverage for missing WebView2 runtime/initialization failures; keep that as a defensive hardening task rather than blocking Salut use.
 
 ## Next Work
@@ -262,4 +263,4 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Commit Boundary
 
-Milestone commit message for the latest completed implementation slice: `Add WinUI custom font registration`.
+Milestone commit message for the latest completed implementation slice: `Add WinUI table and tree cell widgets`.

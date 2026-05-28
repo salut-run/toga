@@ -1,6 +1,5 @@
 import asyncio
 
-import pytest
 from win32more.Microsoft.UI.Xaml.Controls import Grid
 
 from .base import SimpleProbe
@@ -12,7 +11,7 @@ class TreeProbe(SimpleProbe):
     native_class = Grid
     supports_keyboard_shortcuts = True
     supports_keyboard_boundary_shortcuts = False
-    supports_widgets = False
+    supports_widgets = True
     selection_cleared_on_insert_delete = True
     collapse_on_insert_delete = True
     column_proportion_tolerance = 30
@@ -51,13 +50,13 @@ class TreeProbe(SimpleProbe):
         return round(self.impl._column_widths[index])
 
     def assert_cell_content(self, row_path, col, value=None, icon=None, widget=None):
-        if widget:
-            pytest.skip("WinUI doesn't support widgets in Trees")
-
         state = self.impl.state_for_path(row_path)
         cell = state.values[col]
-        assert cell.text == value
-        assert cell.icon == icon
+        if widget:
+            assert cell.widget is widget
+        else:
+            assert cell.text == value
+            assert cell.icon == icon
 
     @property
     def max_scroll_position(self):

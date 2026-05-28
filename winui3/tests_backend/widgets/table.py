@@ -1,4 +1,3 @@
-import pytest
 from win32more.Microsoft.UI.Xaml.Controls import Grid
 
 from .base import SimpleProbe
@@ -11,7 +10,7 @@ class TableProbe(SimpleProbe):
     supports_icons = 2
     supports_keyboard_shortcuts = True
     supports_keyboard_boundary_shortcuts = True
-    supports_widgets = False
+    supports_widgets = True
     column_proportion_tolerance = 30
 
     @property
@@ -31,11 +30,12 @@ class TableProbe(SimpleProbe):
         return len(self.impl._column_widths)
 
     def assert_cell_content(self, row, col, value=None, icon=None, widget=None):
-        if widget:
-            pytest.skip("WinUI doesn't support widgets in Tables")
         cell = self.impl._row_cache[row][col]
-        assert cell.text == value
-        assert cell.icon == icon
+        if widget:
+            assert cell.widget is widget
+        else:
+            assert cell.text == value
+            assert cell.icon == icon
 
     @property
     def max_scroll_position(self):

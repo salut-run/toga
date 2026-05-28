@@ -14,10 +14,17 @@ This file is the persistent coordination state for the experimental `toga-winui3
 ## Operating Rules
 
 - Before any WinUI 3 backend work, read this file, `.specify/memory/constitution.md`, and root `AGENTS.md`.
+- This plan is NOT done until every Toga widget entry point has a WinUI implementation, backend probe, focused Testbed result recorded here, and no disabled widget entry remains in `winui3/pyproject.toml`; agents must keep building rather than stopping at partial Salut usefulness.
 - Keep this file current while working: update status when a test result changes, a blocker is found, a scope boundary changes, or a new next task becomes clearer.
 - Do not let this file become aspirational only; record what has actually passed, what is known failing, and what is merely proposed.
 - Use targeted Testbed slices for backend behavior and record exact pass/fail summaries here.
 - After changing backend entry points in `winui3/pyproject.toml`, run the WinUI Testbed with `--update-requirements` so Briefcase refreshes the dev environment.
+
+## Completion Criteria
+
+- Do not call this plan finished while any widget entry point is still commented out or missing from `winui3/pyproject.toml`.
+- Do not call this plan finished while any implemented widget lacks a WinUI probe under `winui3/tests_backend/widgets/` and a focused Testbed pass/fail summary in this file.
+- After all widgets are implemented and verified, the remaining app/window probe skips and xfails must be reviewed and either implemented, explicitly justified as native-platform limits, or moved into a follow-up plan with clear scope.
 
 ## Verification Commands
 

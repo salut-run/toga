@@ -89,12 +89,15 @@ class Container:
             that require a native panel to calculate content-based constraints.
     """
 
-    def __init__(self, native_panel: Canvas):
+    def __init__(self, native_panel: Canvas, on_refresh=None):
         """Initialize a Container using a given native panel.
 
         :param container_native: The native panel where the widgets.native classes can
             be attached.
         """
+        self.on_refresh = on_refresh
+        self._assigned_width = None
+        self._assigned_height = None
         self.native = native_panel
         self.native.HorizontalAlignment = HorizontalAlignment.Stretch
         self.native.VerticalAlignment = VerticalAlignment.Stretch
@@ -122,11 +125,23 @@ class Container:
 
     @property
     def width(self):
+        if self._assigned_width is not None:
+            return ceil(self._assigned_width)
+        if not self.native.ActualSize.X and isfinite(self.native.Width):
+            return ceil(self.native.Width)
         return ceil(self.native.ActualSize.X)
 
     @property
     def height(self):
+        if self._assigned_height is not None:
+            return ceil(self._assigned_height)
+        if not self.native.ActualSize.Y and isfinite(self.native.Height):
+            return ceil(self.native.Height)
         return ceil(self.native.ActualSize.Y)
+
+    def assign_size(self, width, height):
+        self._assigned_width = width if isfinite(width) else None
+        self._assigned_height = height if isfinite(height) else None
 
     ####################################################################################
     # Container content
@@ -162,4 +177,5 @@ class Container:
             self.content.interface.refresh()
 
     def refreshed(self):
-        pass
+        if self.on_refresh:
+            self.on_refresh(self)

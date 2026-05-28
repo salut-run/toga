@@ -32,8 +32,7 @@ from .widgets.progressbar import ProgressBar
 from .widgets.scrollcontainer import ScrollContainer
 from .widgets.selection import Selection
 from .widgets.slider import Slider
-
-# from .widgets.splitcontainer import SplitContainer
+from .widgets.splitcontainer import SplitContainer
 from .widgets.switch import Switch
 
 # from .widgets.table import Table
@@ -88,7 +87,7 @@ __all__ = [
     "ScrollContainer",
     "Selection",
     "Slider",
-    # "SplitContainer",
+    "SplitContainer",
     "Switch",
     # "Table",
     "TextInput",

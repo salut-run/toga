@@ -1,5 +1,5 @@
 class DialogsMixin:
-    supports_multiple_select_folder = True
+    supports_multiple_select_folder = False
 
     def setup_dialog_result(self, dialog, result, pre_close_test_method=None):
         dialog._impl.interface = dialog
@@ -28,6 +28,8 @@ class DialogsMixin:
         self.setup_dialog_result(dialog, result)
 
     def setup_select_folder_dialog_result(self, dialog, result, multiple_select):
+        if result and multiple_select:
+            result = result[-1:]
         self.setup_dialog_result(dialog, result)
 
     def is_modal_dialog(self, dialog):

@@ -72,8 +72,8 @@ class App:
         self.loop.run_forever(self)
 
     def set_icon(self, icon):
-        # Icons are set in Window.set_app().
-        pass
+        for window in self.interface.windows:
+            window._impl.set_icon(icon)
 
     def set_main_window(self, window):
         pass

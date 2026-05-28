@@ -147,7 +147,11 @@ class Window:
 
     def set_app(self, app):
         """Sets the window icon to be the icon associated to the given app."""
-        self.native.AppWindow.SetIconWithIconId(app.interface.icon._impl.id)
+        self.set_icon(app.interface.icon)
+
+    def set_icon(self, icon):
+        self.icon = icon
+        self.native.AppWindow.SetIconWithIconId(icon._impl.id)
 
     def show(self):
         if self.interface.content is not None:

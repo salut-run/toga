@@ -53,7 +53,12 @@ class AppProbe(BaseProbe):
         pytest.xfail("WinUI 3 doesn't have an app level unhide.")
 
     def assert_app_icon(self, icon):
-        pytest.skip("WinUI 3 app icon probing is not implemented yet.")
+        expected_path = self.app.icon._impl.path
+        if icon is not None:
+            assert expected_path.stem == Path(icon).name
+
+        for window in self.app.windows:
+            assert window._impl.icon._impl.path == expected_path
 
     def activate_menu_hide(self):
         pytest.xfail("WinUI 3 doesn't present an app level hide option in menu.")

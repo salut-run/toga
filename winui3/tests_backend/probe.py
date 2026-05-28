@@ -59,4 +59,12 @@ class BaseProbe(FontMixin):
             assert min_height <= self.height <= max_height
 
     def assert_image_size(self, image_size, size, screen, window=None):
-        assert image_size == size
+        scale_factor = (
+            window._impl.get_current_screen().dpi_scale
+            if window is not None
+            else screen._impl.dpi_scale
+        )
+        assert image_size == approx(
+            (round(size[0] * scale_factor), round(size[1] * scale_factor)),
+            abs=1,
+        )

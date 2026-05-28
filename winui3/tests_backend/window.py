@@ -32,7 +32,7 @@ class WindowProbe(BaseProbe, DialogsMixin):
     supports_unminimize = True
     supports_minimize = True
     supports_placement = True
-    supports_as_image = False
+    supports_as_image = True
     supports_focus = True
     fullscreen_presentation_equal_size = True
     maximize_fullscreen_presentation_equal_size = True

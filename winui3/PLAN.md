@@ -90,7 +90,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `tests/widgets/test_slider.py` passed with `15 passed`.
 - `tests/widgets/test_dateinput.py` and `tests/widgets/test_timeinput.py` passed together with `26 passed`.
 - `tests/widgets/test_splitcontainer.py` passed with `8 passed`.
-- `tests/widgets/test_optioncontainer.py` passed with `8 passed, 1 skipped`; content-based rehinting inside OptionContainer is skipped even though root window/content minimum-size propagation now has focused coverage.
+- `tests/widgets/test_optioncontainer.py` previously passed with `8 passed, 1 skipped`; this has been superseded by the later `9 passed` result with content-based rehinting enabled.
 - `tests/widgets/test_optioncontainer.py` now passes with `9 passed`; content-based rehinting is enabled after fixing off-screen tab minimum-size propagation and the WinUI probe wait loop.
 - `tests/widgets/test_table.py` passed with `26 passed`.
 - `tests/widgets/test_tree.py` passed with `25 passed`.
@@ -181,7 +181,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - `winui3/tests_backend/widgets/multilinetextinput.py`: adds MultilineTextInput probing for normalized values, document extent, scroll position, typed input, selection, placeholder behavior, and marks mouse-wheel simulation unsupported.
 - `winui3/tests_backend/widgets/dateinput.py`: probes native `DatePicker` values, native min/max dates, and day-by-day simulated changes.
 - `winui3/tests_backend/widgets/timeinput.py`: probes native `TimePicker` minute-resolution values and simulated minute changes; native min/max limit probing is marked unsupported because WinUI `TimePicker` lacks limit properties.
-- `winui3/tests_backend/widgets/optioncontainer.py`: probes native `TabView`, tab selection, disabled tab behavior, no-tab-limit behavior, and records unsupported content-based rehinting and tab icons.
+- `winui3/tests_backend/widgets/optioncontainer.py`: probes native `TabView`, tab selection, disabled tab behavior, no-tab-limit behavior, content-based rehinting, and records unsupported tab icons.
 - `winui3/tests_backend/widgets/slider.py`: probes native `Slider` position, tick count, user/probe changes, and press/release events.
 - `winui3/tests_backend/widgets/splitcontainer.py`: probes the native `Grid` container, programmatic splitter moves, and records that direction changes intentionally reset rather than preserve the prior split position.
 - `winui3/tests_backend/widgets/switch.py`: probes `CheckBox` content text and font target, normalizes zero-width-space empty text, and simulates press via the backend value path because a native WinUI click is not currently injectable in the probe.
@@ -214,7 +214,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
 - Image support is currently PNG-only for load/save/data roundtrips; JPEG, GIF, BMP, and TIFF support need either WinRT encoder/decoder coverage or a deliberately chosen dependency.
 - TimeInput is minute-resolution because WinUI `TimePicker` does not expose seconds selection; min/max limits are tracked by the backend rather than enforced by native picker properties.
-- OptionContainer tab icons are not exposed by the backend yet, and content-based rehinting inside OptionContainer is still skipped even though root windows now respond to content minimum-size propagation.
+- OptionContainer tab icons are not exposed by the backend yet; content-based rehinting is now implemented and covered.
 - Table cell icons and widgets are not supported; cell widget values emit a warning and render as missing values, and icon values render text only.
 - Tree uses native WinUI `ListView` rows with backend-managed expansion rather than the native WinUI `TreeView`, because Toga's Tree requires multi-column cells; Tree cell icons and widgets are not supported, structural insert/delete collapses expansion state, and structural insert/delete clears selection.
 - DetailedList actions and refresh are currently exposed through backend/probe hooks, not native swipe, pull-to-refresh, or context-menu UI.
@@ -230,7 +230,7 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 
 ## Coverage Gap Review
 
-- Latest review date: 2026-05-28 after the full screen app suite passed with `4 passed` and the full window suite still passed with `58 passed`.
+- Latest review date: 2026-05-28 after OptionContainer plus the full window suite passed with `67 passed`.
 - Latest mechanical gap scan: 2026-05-28 after commit `0ad6911ba Add WinUI MapView support`; the WinUI widget entry point list is fully enabled and the remaining skips/xfails are app/window probe gaps, native platform limitations, or the two explicit major widget parity gaps.
 - OptionContainer now has content-based rehint coverage; its remaining tab-icon gap is recorded above.
 - Table is now green with native `ListView` rows and backend-managed table state; its remaining icon/widget cell gaps are recorded above.

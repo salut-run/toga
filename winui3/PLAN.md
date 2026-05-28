@@ -100,15 +100,28 @@ If `--update-requirements` hits a locked `coverage\tracer.cp313-win_arm64.pyd`, 
 ## Known Gaps
 
 - TextInput custom fonts and registered font files are unsupported; arbitrary system font names are accepted optimistically.
-- The backend still lacks many widgets beyond the currently completed set and needs a parity roadmap for each widget before it becomes more than experimental.
+- The backend currently implements and has focused Testbed coverage for 13 widget entry points: ActivityIndicator, Box, Button, Divider, Label, NumberInput, PasswordInput, ProgressBar, ScrollContainer, Selection, Switch, TextInput, and WebView.
+- The backend still has 12 disabled widget entry points in `winui3/pyproject.toml`: Canvas, DateInput, DetailedList, ImageView, MapView, MultilineTextInput, OptionContainer, Slider, SplitContainer, Table, TimeInput, and Tree.
 - WinUI app resource lookup still logs missing `winui3app.xbf` and `winui3app.xaml` resource messages during Testbed startup, although the tests still run.
 - Command shortcuts are still not implemented and emit `NotImplementedWarning`.
+- WinUI app/window probes still skip or xfail app icon probing, about dialogs, dialogs, menus, keyboard shortcuts/probing, status icons, app-level hide/unhide, document opening by drag, window-management menu behavior, and toolbar probing.
+- Widget behavior gaps intentionally recorded in probes: undo/redo are skipped globally by `winui3/tests_backend/widgets/base.py`; Selection, NumberInput, and PasswordInput text alignment xfail because the native controls do not expose a simple alignment surface; WebView content root URLs and JavaScript exceptions are marked unsupported to match Windows/WebView2 behavior.
+
+## Coverage Gap Review
+
+- Latest review date: 2026-05-28 after `tests/widgets/test_webview.py` passed with `20 passed`.
+- Next highest-value widget coverage for Salut is `MultilineTextInput`, because chat composition and multiline editing are likely to be exercised before complex data widgets.
+- The next likely asset/display coverage gap is `Image`/`ImageView`; `ImageView` cannot be fully enabled until the backend has an image implementation or a clear native image-loading path matching Toga image semantics.
+- Container/navigation/data widgets still need first-pass implementation and probes: OptionContainer, SplitContainer, Table, Tree, DetailedList, Slider, DateInput, TimeInput, Canvas, and MapView.
+- App/window coverage needs a separate pass after core Salut widgets: command shortcuts, menus, dialogs, app/window icon behavior, status icons, toolbar probing, and document-opening behavior remain mostly skipped/xfail in the WinUI probes.
+- WebView now has broad Testbed coverage but not failure-mode coverage for missing WebView2 runtime/initialization failures; keep that as a defensive hardening task rather than blocking Salut use.
 
 ## Next Work
 
-1. Continue with Salut-driven widgets; likely candidates include MultilineTextInput and ImageView.
-2. Review current Testbed coverage gaps now that WebView is green, especially missing probes/xfails/skips and unimplemented widget entry points.
+1. Implement and verify MultilineTextInput with native WinUI `TextBox` multiline/scroll behavior.
+2. Implement Image and ImageView support, or explicitly document the native image-loading bridge needed before ImageView can pass Testbed.
 3. Continue expanding backend parity one widget at a time, recording each Testbed file status here before moving to the next widget.
+4. After the Salut-critical widgets are green, start app/window coverage work for menus, dialogs, shortcuts, toolbar probing, status icons, and document-opening behavior.
 
 ## Commit Boundary
 

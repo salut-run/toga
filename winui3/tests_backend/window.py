@@ -1,5 +1,13 @@
+from win32more import unbox_value
 from win32more.Microsoft.UI.Windowing import OverlappedPresenterState
 from win32more.Microsoft.UI.Xaml import Window as NativeWindow
+from win32more.Microsoft.UI.Xaml.Controls import (
+    AppBarButton,
+    AppBarSeparator,
+    ICommandBarElement,
+    ToolTipService,
+)
+from win32more.Windows.Foundation.Collections import IVector
 
 from toga import Size
 from toga.constants import WindowState
@@ -84,16 +92,33 @@ class WindowProbe(BaseProbe):
 
     @property
     def toolbar_probe(self):
-        return None
+        if self.impl.toolbar_native is None:
+            return None
+        return BaseProbe(self.impl.toolbar_native)
 
     def has_toolbar(self):
-        return False
+        return self.impl.toolbar_native is not None
+
+    def _native_toolbar_item(self, index):
+        return self.impl.toolbar_native.PrimaryCommands.as_(
+            IVector[ICommandBarElement]
+        ).GetAt(index)
 
     def assert_is_toolbar_separator(self, index, section=False):
-        raise AssertionError("WinUI 3 toolbar probing is not implemented yet.")
+        assert isinstance(
+            self._native_toolbar_item(index).as_(AppBarSeparator),
+            AppBarSeparator,
+        )
 
     def assert_toolbar_item(self, index, label, tooltip, has_icon, enabled):
-        raise AssertionError("WinUI 3 toolbar probing is not implemented yet.")
+        item = self._native_toolbar_item(index).as_(AppBarButton)
+        assert isinstance(item, AppBarButton)
+        assert item.Label == label
+        native_tooltip = ToolTipService.GetToolTip(item)
+        tooltip_text = None if native_tooltip is None else unbox_value(native_tooltip)
+        assert tooltip_text == tooltip
+        assert (item.Icon is not None) == has_icon
+        assert item.IsEnabled == enabled
 
     def press_toolbar_button(self, index):
-        raise AssertionError("WinUI 3 toolbar probing is not implemented yet.")
+        self.impl.toolbar_commands[index].action()

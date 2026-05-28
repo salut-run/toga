@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from ctypes import byref
 from typing import TYPE_CHECKING
 
+from win32more import UInt32
 from win32more.Microsoft.UI.Windowing import (
     AppWindowPresenterKind,
     DisplayArea,
@@ -16,15 +18,23 @@ from win32more.Microsoft.UI.Xaml import (
     WindowActivationState,
 )
 from win32more.Microsoft.UI.Xaml.Controls import (
+    AppBarButton,
+    AppBarSeparator,
     Canvas,
+    CommandBar,
+    CommandBarDefaultLabelPosition,
     Grid,
+    ICommandBarElement,
+    ImageIcon,
     MenuBar,
     MenuBarItem,
     MenuFlyoutItem,
     MenuFlyoutSeparator,
     MenuFlyoutSubItem,
+    ToolTipService,
 )
 from win32more.Microsoft.UI.Xaml.Media import MicaBackdrop
+from win32more.Windows.Foundation.Collections import IVector
 from win32more.Windows.Graphics import PointInt32, SizeInt32
 
 from toga import App
@@ -299,6 +309,7 @@ class MainWindow(Window):
     def create(self):
         super().create()
         self.toolbar_native = None
+        self.toolbar_commands = []
 
     def create_content(self):
         # Row 0 is allocated for the menu
@@ -365,7 +376,61 @@ class MainWindow(Window):
         self.content_native.Children.Append(self.menu_native)
 
     def create_toolbar(self):
-        if not self.interface.toolbar:
-            return
+        if self.interface.toolbar:
+            self.toolbar_commands = []
+            if self.toolbar_native:
+                primary_commands = self.toolbar_native.PrimaryCommands.as_(
+                    IVector[ICommandBarElement]
+                )
+                primary_commands.Clear()
+            else:
+                self.toolbar_native = CommandBar()
+                self.toolbar_native.IsDynamicOverflowEnabled = False
+                self.toolbar_native.DefaultLabelPosition = (
+                    CommandBarDefaultLabelPosition.Right
+                )
+                self.toolbar_native.HorizontalAlignment = HorizontalAlignment.Stretch
+                self.toolbar_native.VerticalAlignment = VerticalAlignment.Top
+                Grid.SetRow(self.toolbar_native, 1)
+                Grid.SetColumn(self.toolbar_native, 0)
+                self.content_native.Children.Append(self.toolbar_native)
+                primary_commands = self.toolbar_native.PrimaryCommands.as_(
+                    IVector[ICommandBarElement]
+                )
 
-        self.interface.factory.not_implemented("Window.create_toolbars")
+            prev_group = None
+            for cmd in self.interface.toolbar:
+                if isinstance(cmd, Separator):
+                    item = AppBarSeparator()
+                    prev_group = None
+                else:
+                    if prev_group is not None and prev_group != cmd.group:
+                        primary_commands.Append(AppBarSeparator())
+                        self.toolbar_commands.append(None)
+                        prev_group = None
+                    else:
+                        prev_group = cmd.group
+
+                    item = AppBarButton()
+                    item.Label = cmd.text
+                    if cmd.tooltip is not None:
+                        ToolTipService.SetToolTip(item, cmd.tooltip)
+                    if cmd.icon is not None:
+                        icon = ImageIcon()
+                        icon.Source = cmd.icon._impl.bitmap_image(32)
+                        item.Icon = icon
+                    item.IsEnabled = cmd.enabled
+                    item.add_Click(cmd._impl.native_event_Click)
+                    cmd._impl.native.append(item)
+                    self.toolbar_commands.append(cmd)
+
+                if isinstance(cmd, Separator):
+                    self.toolbar_commands.append(None)
+                primary_commands.Append(item)
+        elif self.toolbar_native:
+            index = UInt32()
+            if self.content_native.Children.IndexOf(self.toolbar_native, byref(index)):
+                self.content_native.Children.RemoveAt(index.value)
+            self.toolbar_native = None
+            self.toolbar_commands = []
+            return

@@ -87,7 +87,7 @@ class Command:
     def set_enabled(self, value):
         if self.native:
             for widget in self.native:
-                widget.Enabled = self.interface.enabled
+                widget.IsEnabled = value
 
     def create_menu_item(self, NativeClass):
         item = NativeClass()
@@ -97,7 +97,7 @@ class Command:
         if self.interface.shortcut is not None:
             self.interface.factory.not_implemented("Command shortcuts")
 
-        item.Enabled = self.interface.enabled
+        item.IsEnabled = self.interface.enabled
 
         self.native.append(item)
 

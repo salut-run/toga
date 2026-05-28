@@ -1,6 +1,5 @@
 from io import BytesIO
 
-import pytest
 from PIL import Image
 from win32more.Microsoft.Graphics.Canvas.UI.Xaml import CanvasControl
 
@@ -11,10 +10,14 @@ class CanvasProbe(SimpleProbe):
     native_class = CanvasControl
 
     def reference_variant(self, reference):
-        return reference
+        return {
+            "attributes": "attributes-winui3",
+            "miter_join": "miter_join-winforms",
+            "transforms_mid_path": "transforms_mid_path-winui3",
+        }.get(reference, reference)
 
     def get_image(self):
-        pytest.skip("WinUI Canvas visual rendering is not implemented yet")
+        return self.get_exported_image()
 
     def get_exported_image(self):
         return Image.open(BytesIO(self.impl.get_image_data()))

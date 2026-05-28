@@ -1,7 +1,6 @@
 import logging
 import math
-import struct
-import zlib
+from contextlib import contextmanager
 from threading import Event
 
 from travertino.size import at_least
@@ -28,6 +27,7 @@ from toga.handlers import WeakrefCallable
 from toga.widgets.canvas.geometry import arc_to_bezier, round_rect, sweepangle
 
 from ..colors import native_color
+from ..libs.png import png_from_rgba
 from .base import Widget
 
 logger = logging.getLogger(__name__)
@@ -269,20 +269,115 @@ class Context:
         if self.state.singular:
             return
 
-        if geometry := self._geometry():
-            if self.state.line_dash:
-                self.native.DrawGeometryAtOriginWithColorAndStrokeWidthAndStrokeStyle(
-                    geometry,
-                    self.state.stroke_color,
-                    self.state.line_width,
-                    self._stroke_style(),
-                )
-            else:
-                self.native.DrawGeometryAtOriginWithColorAndStrokeWidth(
-                    geometry,
-                    self.state.stroke_color,
-                    self.state.line_width,
-                )
+        geometry = self._dashed_geometry() if self.state.line_dash else self._geometry()
+        if geometry:
+            self.native.DrawGeometryAtOriginWithColorAndStrokeWidthAndStrokeStyle(
+                geometry,
+                self.state.stroke_color,
+                self.state.line_width,
+                self._stroke_style(),
+            )
+
+    def _dashed_geometry(self):
+        builder = CanvasPathBuilder.Create(self.resource_creator)
+        pattern = [dash for dash in self.state.line_dash if dash > 0]
+        if not pattern:
+            return self._geometry()
+
+        for figure in self.figures:
+            points = [figure.start]
+            for command, command_points in figure.commands:
+                if command != "line":
+                    return self._geometry()
+                points.append(command_points)
+
+            if figure.closed:
+                points.append(figure.start)
+
+            dash_index = 0
+            dash_remaining = pattern[dash_index]
+            dash_on = True
+
+            for start, end in zip(points, points[1:], strict=False):
+                x1, y1 = start
+                x2, y2 = end
+                length = math.hypot(x2 - x1, y2 - y1)
+                if length == 0:
+                    continue
+
+                position = 0
+                while position < length:
+                    step = min(dash_remaining, length - position)
+                    if dash_on and step > 0:
+                        segment_start = position / length
+                        segment_end = (position + step) / length
+                        builder.BeginFigureAtCoords(
+                            x1 + (x2 - x1) * segment_start,
+                            y1 + (y2 - y1) * segment_start,
+                        )
+                        builder.AddLineWithCoords(
+                            x1 + (x2 - x1) * segment_end,
+                            y1 + (y2 - y1) * segment_end,
+                        )
+                        builder.EndFigure(CanvasFigureLoop.Open)
+
+                    position += step
+                    dash_remaining -= step
+                    if dash_remaining <= 0:
+                        dash_index = (dash_index + 1) % len(pattern)
+                        dash_remaining = pattern[dash_index]
+                        dash_on = dash_index % 2 == 0
+
+        return CanvasGeometry.CreatePath(builder)
+
+    def _geometry(self, fill_rule=FillRule.NONZERO):
+        if not self.figures:
+            return None
+
+        builder = CanvasPathBuilder.Create(self.resource_creator)
+        if fill_rule == FillRule.EVENODD:
+            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Alternate)
+        else:
+            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Winding)
+
+        for figure in self.figures:
+            builder.BeginFigureAtCoords(*figure.start)
+            for command, points in figure.commands:
+                if command == "line":
+                    builder.AddLineWithCoords(*points)
+                elif command == "cubic":
+                    builder.AddCubicBezier(*(vector2(*point) for point in points))
+                else:
+                    builder.AddQuadraticBezier(*(vector2(*point) for point in points))
+
+            builder.EndFigure(
+                CanvasFigureLoop.Closed if figure.closed else CanvasFigureLoop.Open
+            )
+
+        return CanvasGeometry.CreatePath(builder)
+
+    def _stroke_style(self):
+        style = CanvasStrokeStyle()
+        style.StartCap = CanvasCapStyle.Flat
+        style.EndCap = CanvasCapStyle.Flat
+        style.LineJoin = CanvasLineJoin.Miter
+        style.MiterLimit = 10
+        style.DashStyle = CanvasDashStyle.Solid
+        return style
+
+    def _rotation(self, radians):
+        cos = math.cos(radians)
+        sin = math.sin(radians)
+        return (cos, sin, -sin, cos, 0, 0)
+
+    @contextmanager
+    def _native_transform(self, matrix):
+        previous = self.native.Transform
+        self.native.Transform = native_matrix(matrix)
+        try:
+            yield
+        finally:
+            self.native.Transform = previous
 
     def rotate(self, radians):
         self.state.transform = multiply(self.state.transform, self._rotation(radians))
@@ -361,59 +456,6 @@ class Context:
         with self._native_transform(self.state.transform):
             self.native.DrawImageToRect(bitmap, rect(x, y, width, height))
 
-    def _geometry(self, fill_rule=FillRule.NONZERO):
-        if not self.figures:
-            return None
-
-        builder = CanvasPathBuilder.Create(self.resource_creator)
-        if fill_rule == FillRule.EVENODD:
-            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Alternate)
-        else:
-            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Winding)
-
-        for figure in self.figures:
-            builder.BeginFigureAtCoords(*figure.start)
-            for command, points in figure.commands:
-                if command == "line":
-                    builder.AddLineWithCoords(*points)
-                elif command == "cubic":
-                    builder.AddCubicBezier(*(vector2(*point) for point in points))
-                else:
-                    builder.AddQuadraticBezier(*(vector2(*point) for point in points))
-
-            builder.EndFigure(
-                CanvasFigureLoop.Closed if figure.closed else CanvasFigureLoop.Open
-            )
-
-        return CanvasGeometry.CreatePath(builder)
-
-    def _stroke_style(self):
-        style = CanvasStrokeStyle()
-        style.StartCap = CanvasCapStyle.Flat
-        style.EndCap = CanvasCapStyle.Flat
-        style.LineJoin = CanvasLineJoin.Miter
-        style.DashStyle = CanvasDashStyle.Solid
-        style.CustomDashStyle = [
-            dash / self.state.line_width for dash in self.state.line_dash
-        ]
-        return style
-
-    def _rotation(self, radians):
-        cos = math.cos(radians)
-        sin = math.sin(radians)
-        return (cos, sin, -sin, cos, 0, 0)
-
-    class _native_transform:
-        def __init__(self, context, matrix):
-            self.context = context
-            self.matrix = matrix
-
-        def __enter__(self):
-            self.previous = self.context.native.Transform
-            self.context.native.Transform = native_matrix(self.matrix)
-
-        def __exit__(self, *exc_info):
-            self.context.native.Transform = self.previous
 
 
 class Canvas(Widget):
@@ -496,9 +538,8 @@ class Canvas(Widget):
         )
 
     def _png(self, width, height, bgra):
-        raw = bytearray()
+        rgba = bytearray()
         for row in range(height):
-            raw.append(0)
             for column in range(width):
                 offset = ((row * width) + column) * 4
                 b, g, r, a = bgra[offset:offset + 4]
@@ -506,22 +547,9 @@ class Canvas(Widget):
                     r = min(255, round(r * 255 / a))
                     g = min(255, round(g * 255 / a))
                     b = min(255, round(b * 255 / a))
-                raw.extend((r, g, b, a))
+                rgba.extend((r, g, b, a))
 
-        def chunk(kind, data):
-            return (
-                struct.pack(">I", len(data))
-                + kind
-                + data
-                + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-            )
-
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(bytes(raw)))
-            + chunk(b"IEND", b"")
-        )
+        return png_from_rgba(width, height, rgba)
 
     def _canvas_bitmap(self, image):
         path = image._impl.native.path

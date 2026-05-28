@@ -1,5 +1,3 @@
-import struct
-import zlib
 from ctypes import byref, create_string_buffer, sizeof
 
 from win32more.Windows.Win32.Foundation import HWND, RECT
@@ -21,6 +19,8 @@ from win32more.Windows.Win32.Graphics.Gdi import (
     SelectObject,
 )
 from win32more.Windows.Win32.UI.WindowsAndMessaging import GetClientRect
+
+from .png import png_from_rgba
 
 
 def capture_client(hwnd):
@@ -113,19 +113,4 @@ def png_from_bgra(width, height, bgra):
         rgba[offset + 2] = bgra[offset]
         rgba[offset + 3] = 255
 
-    def chunk(kind, data):
-        return (
-            struct.pack(">I", len(data))
-            + kind
-            + data
-            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-        )
-
-    stride = width * 4
-    raw = b"".join(b"\x00" + rgba[y * stride : (y + 1) * stride] for y in range(height))
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-        + chunk(b"IDAT", zlib.compress(raw))
-        + chunk(b"IEND", b"")
-    )
+    return png_from_rgba(width, height, rgba)

@@ -1,53 +1,204 @@
+import logging
+import math
 import struct
 import zlib
+from threading import Event
 
 from travertino.size import at_least
+from win32more.Microsoft.Graphics.Canvas import CanvasBitmap, CanvasRenderTarget
+from win32more.Microsoft.Graphics.Canvas.Geometry import (
+    CanvasCapStyle,
+    CanvasDashStyle,
+    CanvasFigureLoop,
+    CanvasFilledRegionDetermination,
+    CanvasGeometry,
+    CanvasLineJoin,
+    CanvasPathBuilder,
+    CanvasStrokeStyle,
+)
+from win32more.Microsoft.Graphics.Canvas.Text import CanvasTextFormat, CanvasTextLayout
 from win32more.Microsoft.Graphics.Canvas.UI.Xaml import CanvasControl
+from win32more.Windows.Foundation import AsyncStatus, Rect
+from win32more.Windows.Foundation.Numerics import Matrix3x2, Vector2
 
+from toga.colors import rgb
+from toga.constants import TRANSPARENT, Baseline, FillRule
 from toga.fonts import SYSTEM, SYSTEM_DEFAULT_FONT_SIZE
+from toga.handlers import WeakrefCallable
+from toga.widgets.canvas.geometry import arc_to_bezier, round_rect, sweepangle
 
+from ..colors import native_color
 from .base import Widget
+
+logger = logging.getLogger(__name__)
+BLACK = native_color(rgb(0, 0, 0))
+IDENTITY = (1, 0, 0, 1, 0, 0)
+
+
+def vector2(x, y):
+    vector = Vector2()
+    vector.X = x
+    vector.Y = y
+    return vector
+
+
+def rect(x, y, width, height):
+    native = Rect()
+    native.X = x
+    native.Y = y
+    native.Width = width
+    native.Height = height
+    return native
+
+
+def native_matrix(matrix):
+    native = Matrix3x2()
+    native.M11, native.M12, native.M21, native.M22, native.M31, native.M32 = matrix
+    return native
+
+
+def multiply(first, second):
+    a1, b1, c1, d1, e1, f1 = first
+    a2, b2, c2, d2, e2, f2 = second
+    return (
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1,
+    )
+
+
+def transform_point(matrix, x, y):
+    a, b, c, d, e, f = matrix
+    return (a * x + c * y + e, b * x + d * y + f)
+
+
+class State:
+    def __init__(self, previous=None):
+        if previous is None:
+            self.fill_color = BLACK
+            self.stroke_color = BLACK
+            self.line_width = 2.0
+            self.line_dash = []
+            self.transform = IDENTITY
+            self.singular = False
+        else:
+            self.fill_color = previous.fill_color
+            self.stroke_color = previous.stroke_color
+            self.line_width = previous.line_width
+            self.line_dash = list(previous.line_dash)
+            self.transform = previous.transform
+            self.singular = previous.singular
+
+
+class Figure:
+    def __init__(self, start):
+        self.start = start
+        self.commands = []
+        self.closed = False
+
+    @property
+    def current_point(self):
+        if not self.commands:
+            return self.start
+
+        command, points = self.commands[-1]
+        if command == "line":
+            return points
+        return points[-1]
 
 
 class Context:
+    def __init__(self, impl, native):
+        self.impl = impl
+        self.native = native
+        self.resource_creator = native.Device
+        self.states = [State()]
+        self.begin_path()
+
+        # Backwards compatibility for Toga <= 0.5.3.
+        self.in_fill = False
+        self.in_stroke = False
+
+    @property
+    def state(self):
+        return self.states[-1]
+
+    @property
+    def current_figure(self):
+        return self.figures[-1] if self.figures else None
+
     def save(self):
-        pass
+        self.states.append(State(self.state))
 
     def restore(self):
-        pass
+        if len(self.states) > 1:
+            self.states.pop()
 
     def set_fill_style(self, color):
-        pass
+        self.state.fill_color = native_color(color)
 
     def set_line_dash(self, line_dash):
-        pass
+        if line_dash and len(line_dash) % 2:
+            line_dash = line_dash * 2
+        self.state.line_dash = list(line_dash or [])
 
     def set_line_width(self, line_width):
-        pass
+        self.state.line_width = line_width
 
     def set_stroke_style(self, color):
-        pass
+        self.state.stroke_color = native_color(color)
 
     def begin_path(self):
-        pass
+        self.figures = []
 
     def close_path(self):
-        pass
+        if figure := self.current_figure:
+            figure.closed = True
 
     def move_to(self, x, y):
-        pass
+        self.figures.append(Figure(transform_point(self.state.transform, x, y)))
 
     def line_to(self, x, y):
-        pass
+        point = transform_point(self.state.transform, x, y)
+        if figure := self.current_figure:
+            figure.commands.append(("line", point))
+        else:
+            self.figures.append(Figure(point))
 
     def bezier_curve_to(self, cp1x, cp1y, cp2x, cp2y, x, y):
-        pass
+        if self.current_figure is None:
+            self.move_to(cp1x, cp1y)
+
+        self.current_figure.commands.append(
+            (
+                "cubic",
+                (
+                    transform_point(self.state.transform, cp1x, cp1y),
+                    transform_point(self.state.transform, cp2x, cp2y),
+                    transform_point(self.state.transform, x, y),
+                ),
+            )
+        )
 
     def quadratic_curve_to(self, cpx, cpy, x, y):
-        pass
+        if self.current_figure is None:
+            self.move_to(cpx, cpy)
+
+        self.current_figure.commands.append(
+            (
+                "quadratic",
+                (
+                    transform_point(self.state.transform, cpx, cpy),
+                    transform_point(self.state.transform, x, y),
+                ),
+            )
+        )
 
     def arc(self, x, y, radius, startangle, endangle, counterclockwise):
-        pass
+        self.ellipse(x, y, radius, radius, 0, startangle, endangle, counterclockwise)
 
     def ellipse(
         self,
@@ -60,51 +211,230 @@ class Context:
         endangle,
         counterclockwise,
     ):
-        pass
+        ellipse_transform = multiply(
+            multiply(
+                multiply(
+                    multiply((1, 0, 0, 1, x, y), self._rotation(rotation)),
+                    (radiusx, 0, 0, radiusy, 0, 0),
+                ),
+                self._rotation(startangle),
+            ),
+            IDENTITY,
+        )
+        points = [
+            transform_point(
+                self.state.transform,
+                *transform_point(ellipse_transform, px, py),
+            )
+            for px, py in arc_to_bezier(
+                sweepangle(startangle, endangle, counterclockwise)
+            )
+        ]
+
+        start = points.pop(0)
+        if self.current_figure is None:
+            self.figures.append(Figure(start))
+        else:
+            self.current_figure.commands.append(("line", start))
+
+        for index in range(0, len(points), 3):
+            self.current_figure.commands.append(
+                ("cubic", tuple(points[index : index + 3]))
+            )
 
     def rect(self, x, y, width, height):
-        pass
+        points = [
+            transform_point(self.state.transform, x, y),
+            transform_point(self.state.transform, x + width, y),
+            transform_point(self.state.transform, x + width, y + height),
+            transform_point(self.state.transform, x, y + height),
+        ]
+        figure = Figure(points[0])
+        for point in points[1:]:
+            figure.commands.append(("line", point))
+        figure.closed = True
+        self.figures.append(figure)
 
     def round_rect(self, x, y, width, height, radii):
-        pass
+        round_rect(self, x, y, width, height, radii)
 
     def fill(self, fill_rule):
-        pass
+        if self.state.singular:
+            return
+
+        if geometry := self._geometry(fill_rule):
+            self.native.FillGeometryAtOriginWithColor(geometry, self.state.fill_color)
 
     def stroke(self):
-        pass
+        if self.state.singular:
+            return
+
+        if geometry := self._geometry():
+            if self.state.line_dash:
+                self.native.DrawGeometryAtOriginWithColorAndStrokeWidthAndStrokeStyle(
+                    geometry,
+                    self.state.stroke_color,
+                    self.state.line_width,
+                    self._stroke_style(),
+                )
+            else:
+                self.native.DrawGeometryAtOriginWithColorAndStrokeWidth(
+                    geometry,
+                    self.state.stroke_color,
+                    self.state.line_width,
+                )
 
     def rotate(self, radians):
-        pass
+        self.state.transform = multiply(self.state.transform, self._rotation(radians))
 
     def scale(self, sx, sy):
-        pass
+        if sx == 0:
+            sx = 2**-24
+            self.state.singular = True
+        if sy == 0:
+            sy = 2**-24
+            self.state.singular = True
+
+        self.state.transform = multiply(self.state.transform, (sx, 0, 0, sy, 0, 0))
 
     def translate(self, tx, ty):
-        pass
+        self.state.transform = multiply(self.state.transform, (1, 0, 0, 1, tx, ty))
 
     def reset_transform(self):
-        pass
+        self.state.transform = IDENTITY
+        self.state.singular = False
 
     def write_text(self, text, x, y, font, baseline, line_height):
-        pass
+        if self.state.singular or not text:
+            return
+
+        format = CanvasTextFormat()
+        format.FontFamily = font.native_family.Source
+        format.FontSize = font.native_size
+        format.FontWeight = font.native_weight
+        format.FontStyle = font.native_style
+
+        if line_height is not None:
+            format.LineSpacing = font.native_size * line_height
+
+        layout = CanvasTextLayout.Create(
+            self.resource_creator,
+            text,
+            format,
+            10000,
+            10000,
+        )
+        bounds = layout.LayoutBounds
+        text_height = bounds.Height
+
+        if baseline == Baseline.TOP:
+            top = y
+        elif baseline == Baseline.MIDDLE:
+            top = y - text_height / 2
+        elif baseline == Baseline.BOTTOM:
+            top = y - text_height
+        else:
+            top = y - (font.native_size * 0.8)
+
+        transform = multiply(self.state.transform, (1, 0, 0, 1, x, top))
+        with self._native_transform(transform):
+            if self.in_fill:
+                self.native.DrawTextLayoutAtCoordsWithColor(
+                    layout,
+                    0,
+                    0,
+                    self.state.fill_color,
+                )
+            if self.in_stroke:
+                geometry = CanvasGeometry.CreateText(layout)
+                self.native.DrawGeometryAtOriginWithColorAndStrokeWidth(
+                    geometry,
+                    self.state.stroke_color,
+                    self.state.line_width,
+                )
 
     def draw_image(self, image, x, y, width, height):
-        pass
+        if self.state.singular:
+            return
+
+        bitmap = self.impl._canvas_bitmap(image)
+        with self._native_transform(self.state.transform):
+            self.native.DrawImageToRect(bitmap, rect(x, y, width, height))
+
+    def _geometry(self, fill_rule=FillRule.NONZERO):
+        if not self.figures:
+            return None
+
+        builder = CanvasPathBuilder.Create(self.resource_creator)
+        if fill_rule == FillRule.EVENODD:
+            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Alternate)
+        else:
+            builder.SetFilledRegionDetermination(CanvasFilledRegionDetermination.Winding)
+
+        for figure in self.figures:
+            builder.BeginFigureAtCoords(*figure.start)
+            for command, points in figure.commands:
+                if command == "line":
+                    builder.AddLineWithCoords(*points)
+                elif command == "cubic":
+                    builder.AddCubicBezier(*(vector2(*point) for point in points))
+                else:
+                    builder.AddQuadraticBezier(*(vector2(*point) for point in points))
+
+            builder.EndFigure(
+                CanvasFigureLoop.Closed if figure.closed else CanvasFigureLoop.Open
+            )
+
+        return CanvasGeometry.CreatePath(builder)
+
+    def _stroke_style(self):
+        style = CanvasStrokeStyle()
+        style.StartCap = CanvasCapStyle.Flat
+        style.EndCap = CanvasCapStyle.Flat
+        style.LineJoin = CanvasLineJoin.Miter
+        style.DashStyle = CanvasDashStyle.Solid
+        style.CustomDashStyle = [
+            dash / self.state.line_width for dash in self.state.line_dash
+        ]
+        return style
+
+    def _rotation(self, radians):
+        cos = math.cos(radians)
+        sin = math.sin(radians)
+        return (cos, sin, -sin, cos, 0, 0)
+
+    class _native_transform:
+        def __init__(self, context, matrix):
+            self.context = context
+            self.matrix = matrix
+
+        def __enter__(self):
+            self.previous = self.context.native.Transform
+            self.context.native.Transform = native_matrix(self.matrix)
+
+        def __exit__(self, *exc_info):
+            self.context.native.Transform = self.previous
 
 
 class Canvas(Widget):
     def create(self):
         self.native = CanvasControl()
         self.native.IsTabStop = False
+        self.native.Draw += WeakrefCallable(self.native_event_draw)
         self._width = 0
         self._height = 0
+        self._bitmap_cache = {}
 
     def get_enabled(self):
         return True
 
     def set_enabled(self, value):
         pass
+
+    def set_background_color(self, color):
+        super().set_background_color(color)
+        self.native.ClearColor = native_color(color or TRANSPARENT)
+        self.native.Invalidate()
 
     @property
     def has_focus(self):
@@ -123,7 +453,6 @@ class Canvas(Widget):
             self.interface.on_resize(width=round(width), height=round(height))
 
     def redraw(self):
-        self.interface.root_state._draw(Context())
         self.native.Invalidate()
 
     def measure_text(self, text, font, line_height):
@@ -148,19 +477,36 @@ class Canvas(Widget):
     def get_image_data(self):
         width = max(1, round(self._width or self.native.Width or 1))
         height = max(1, round(self._height or self.native.Height or 1))
-        return self._png(width, height, self._background_rgba())
+        target = CanvasRenderTarget.CreateWithWidthAndHeightAndDpi(
+            self.native.Device,
+            width,
+            height,
+            self.native.Dpi,
+        )
+        session = target.CreateDrawingSession()
+        try:
+            self._render(session)
+        finally:
+            session.Close()
 
-    def _background_rgba(self):
-        color = self.interface.style.background_color
-        if color is None:
-            return 0, 0, 0, 0
+        return self._png(
+            target.SizeInPixels.Width,
+            target.SizeInPixels.Height,
+            target.GetPixelBytes(),
+        )
 
-        rgb = color.rgb
-        return rgb.r, rgb.g, rgb.b, round(rgb.a * 255)
-
-    def _png(self, width, height, rgba):
-        raw_row = bytes(rgba) * width
-        raw = b"".join(b"\x00" + raw_row for _row in range(height))
+    def _png(self, width, height, bgra):
+        raw = bytearray()
+        for row in range(height):
+            raw.append(0)
+            for column in range(width):
+                offset = ((row * width) + column) * 4
+                b, g, r, a = bgra[offset:offset + 4]
+                if a:
+                    r = min(255, round(r * 255 / a))
+                    g = min(255, round(g * 255 / a))
+                    b = min(255, round(b * 255 / a))
+                raw.extend((r, g, b, a))
 
         def chunk(kind, data):
             return (
@@ -173,9 +519,42 @@ class Canvas(Widget):
         return (
             b"\x89PNG\r\n\x1a\n"
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw))
+            + chunk(b"IDAT", zlib.compress(bytes(raw)))
             + chunk(b"IEND", b"")
         )
+
+    def _canvas_bitmap(self, image):
+        path = image._impl.native.path
+        try:
+            return self._bitmap_cache[path]
+        except KeyError:
+            loaded = {}
+            event = Event()
+            operation = CanvasBitmap.LoadAsyncFromHstring(self.native.Device, str(path))
+
+            def completed(async_info, async_status):
+                if async_status == AsyncStatus.Completed:
+                    loaded["bitmap"] = async_info.GetResults()
+                event.set()
+
+            operation.Completed = completed
+            event.wait()
+            bitmap = loaded["bitmap"]
+            self._bitmap_cache[path] = bitmap
+            return bitmap
+
+    def _render(self, drawing_session):
+        drawing_session.Clear(
+            native_color(self.interface.style.background_color or TRANSPARENT)
+        )
+        context = Context(self, drawing_session)
+        self.interface.root_state._draw(context)
+
+    def native_event_draw(self, sender, args):
+        try:
+            self._render(args.DrawingSession)
+        except Exception:
+            logger.exception("Error rendering Canvas.")
 
     def simulate_press(self, x, y):
         self.interface.on_press(x, y)

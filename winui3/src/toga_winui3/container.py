@@ -1,5 +1,7 @@
+from ctypes import byref
 from math import ceil
 
+from win32more import UInt32
 from win32more.Microsoft.UI.Xaml import HorizontalAlignment, VerticalAlignment
 from win32more.Microsoft.UI.Xaml.Controls import Canvas, RelativePanel
 
@@ -30,9 +32,10 @@ class ContainerWidgets:
         self._native.Children.Append(widget.native)
 
     def remove(self, widget):
-        index = self._widgets.index(widget)
         self._widgets.remove(widget)
-        self._native.Children.RemoveAt(index)
+        native_index = UInt32()
+        if self._native.Children.IndexOf(widget.native, byref(native_index)):
+            self._native.Children.RemoveAt(native_index.value)
 
 
 class ContainerStagingArea(ContainerWidgets):

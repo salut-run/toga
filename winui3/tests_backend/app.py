@@ -65,7 +65,7 @@ class AppProbe(BaseProbe, DialogsMixin):
         pytest.xfail("WinUI 3 doesn't present an app level hide option in menu.")
 
     def activate_menu_exit(self):
-        self.app.exit()
+        self._activate_menu_item(["File", "Exit"])
 
     def activate_menu_about(self):
         self._activate_menu_item(["Help", f"About {self.formal_name}"])

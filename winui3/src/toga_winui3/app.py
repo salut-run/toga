@@ -157,11 +157,15 @@ class App:
 
     def hide_cursor(self):
         # learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showcursor
-        ShowCursor(False)
+        if self._cursor_visible:
+            ShowCursor(False)
+        self._cursor_visible = False
 
     def show_cursor(self):
         # learn.microsoft.com/windows/win32/api/winuser/nf-winuser-showcursor
-        ShowCursor(True)
+        if not self._cursor_visible:
+            ShowCursor(True)
+        self._cursor_visible = True
 
     ####################################################################################
     # Window control
@@ -169,18 +173,25 @@ class App:
 
     def get_current_window(self):
         """Returns the currently activated window if one exists, otherwise None."""
+        visible_windows = [
+            window._impl
+            for window in self.interface.windows
+            if window._impl.get_visible()
+        ]
         document_windows = [
-            window._impl for window in self.interface.windows if hasattr(window, "doc")
+            window._impl
+            for window in self.interface.windows
+            if hasattr(window, "doc") and window._impl.get_visible()
         ]
         if len(document_windows) == 1:
             return document_windows[0]
 
-        if self._current_window in [window._impl for window in self.interface.windows]:
+        if self._current_window in visible_windows:
             return self._current_window
 
-        for window in self.interface.windows:
-            if window._impl.is_activated:
-                return window._impl
+        for window in visible_windows:
+            if window.is_activated:
+                return window
         return None
 
     def set_current_window(self, window):

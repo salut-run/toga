@@ -7,8 +7,7 @@ from .app import App
 from .command import Command
 from .fonts import Font
 from .icons import Icon
-
-# from .images import Image
+from .images import Image
 from .paths import Paths
 from .statusicons import MenuStatusIcon, SimpleStatusIcon, StatusIconSet
 from .widgets.activityindicator import ActivityIndicator
@@ -19,8 +18,7 @@ from .widgets.button import Button
 # from .widgets.dateinput import DateInput
 # from .widgets.detailedlist import DetailedList
 from .widgets.divider import Divider
-
-# from .widgets.imageview import ImageView
+from .widgets.imageview import ImageView
 from .widgets.label import Label
 
 # from .widgets.mapview import MapView
@@ -63,7 +61,7 @@ __all__ = [
     # Resources
     "Font",
     "Icon",
-    # "Image",
+    "Image",
     "Paths",
     # "dialogs",
     # Status Icons
@@ -78,7 +76,7 @@ __all__ = [
     # "DateInput",
     # "DetailedList",
     "Divider",
-    # "ImageView",
+    "ImageView",
     "Label",
     # "MapView",
     "MultilineTextInput",

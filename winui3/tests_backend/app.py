@@ -29,10 +29,12 @@ from win32more.Windows.Win32.UI.WindowsAndMessaging import (
     GetMenuState,
     GetMenuStringW,
     GetSubMenu,
+    PostMessageW,
 )
 
 from toga.command import Separator
 from toga_winui3.keys import toga_to_winui_key, winui_to_toga_key
+from toga_winui3.statusicons import WM_STATUS_ICON
 
 from .dialogs import DialogsMixin
 from .probe import BaseProbe
@@ -326,7 +328,13 @@ class AppProbe(BaseProbe, DialogsMixin):
         return self._native_status_menu_items(status_icon._impl._menu)
 
     def activate_status_icon_button(self, item_id):
-        self.app.status_icons[item_id]._impl._handle_status_message(Shell.NIN_SELECT)
+        status_icon = self.app.status_icons[item_id]._impl
+        PostMessageW(
+            status_icon._hwnd,
+            WM_STATUS_ICON,
+            status_icon._id,
+            Shell.NIN_SELECT,
+        )
 
     def simulate_status_icon_taskbar_restart(self, status_icon):
         status_icon._impl._simulate_taskbar_restart()

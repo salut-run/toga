@@ -5,9 +5,34 @@ from time import time
 from win32more.Microsoft.UI.Xaml.Controls import WebView2
 
 import toga
-from toga_winui3.widgets.mapview import LEAFLET_BASE_URL, LEAFLET_VERSION, MAP_TILE_URL
+from toga_winui3.widgets.mapview import (
+    LEAFLET_SCRIPT_URL,
+    LEAFLET_STYLESHEET_URL,
+    MAP_PROVIDER,
+    mapview_html_content,
+)
 
 from .base import SimpleProbe
+
+UNAVAILABLE_SCRIPT_URL = "https://example.invalid/toga-winui3-leaflet.js"
+UNAVAILABLE_STYLESHEET_URL = "https://example.invalid/toga-winui3-leaflet.css"
+UNAVAILABLE_MAP_PROVIDER = {
+    **MAP_PROVIDER,
+    "leafletScript": UNAVAILABLE_SCRIPT_URL,
+    "leafletStylesheet": UNAVAILABLE_STYLESHEET_URL,
+    "providerLoadTimeout": 1,
+}
+
+
+def unavailable_mapview_html():
+    content = mapview_html_content().replace(
+        json.dumps(MAP_PROVIDER),
+        json.dumps(UNAVAILABLE_MAP_PROVIDER),
+    )
+    return content.replace(LEAFLET_SCRIPT_URL, UNAVAILABLE_SCRIPT_URL).replace(
+        LEAFLET_STYLESHEET_URL,
+        UNAVAILABLE_STYLESHEET_URL,
+    )
 
 
 class MapViewProbe(SimpleProbe):
@@ -53,6 +78,11 @@ class MapViewProbe(SimpleProbe):
                         hasTileLayer: (
                             typeof tileLayer !== "undefined" && tileLayer !== null
                         ),
+                        providerUnavailable: (
+                            typeof providerUnavailable !== "undefined"
+                                ? providerUnavailable
+                                : null
+                        ),
                         pinCount: (
                             typeof pins !== "undefined"
                                 ? Object.keys(pins).length
@@ -80,26 +110,53 @@ class MapViewProbe(SimpleProbe):
 
         assert state["hasMapElement"]
         assert state["status"] in {"loading", "ready", "provider-unavailable"}
-        assert state["provider"] == {
-            "leafletVersion": LEAFLET_VERSION,
-            "leafletScript": f"{LEAFLET_BASE_URL}/leaflet.js",
-            "leafletStylesheet": f"{LEAFLET_BASE_URL}/leaflet.css",
-            "tileUrl": MAP_TILE_URL,
-            "attribution": "&copy; OpenStreetMap contributors",
-        }
-        assert f"{LEAFLET_BASE_URL}/leaflet.css" in state["leafletStylesheets"]
-        assert f"{LEAFLET_BASE_URL}/leaflet.js" in state["leafletScripts"]
+        assert state["provider"] == MAP_PROVIDER
+        assert LEAFLET_STYLESHEET_URL in state["leafletStylesheets"]
+        assert LEAFLET_SCRIPT_URL in state["leafletScripts"]
 
         if state["status"] == "ready":
+            assert not state["providerUnavailable"]
             assert state["hasLeaflet"]
             assert state["hasMap"]
             assert state["hasTileLayer"]
             assert state["pinCount"] == expected_pin_count
             assert state["pendingActionCount"] == 0
         elif state["status"] == "provider-unavailable":
+            assert state["providerUnavailable"]
             assert not state["hasMap"]
+            assert state["pendingActionCount"] == 0
 
         return state
+
+    async def assert_provider_unavailable_surface(self):
+        self.impl.native.NavigateToString(unavailable_mapview_html())
+
+        deadline = time() + 2
+        while True:
+            await self.redraw("Map provider unavailable state simulated")
+            state = await self.map_surface_state()
+            if state.get("status") == "provider-unavailable" or time() >= deadline:
+                break
+            await asyncio.sleep(0.05)
+
+        assert state["hasMapElement"]
+        assert state["status"] == "provider-unavailable"
+        assert state["provider"] == UNAVAILABLE_MAP_PROVIDER
+        assert state["providerUnavailable"]
+        assert not state["hasMap"]
+        assert state["pinCount"] == 0
+        assert state["pendingActionCount"] == 0
+
+        self.widget.location = (-33.955, 115.075)
+        self.widget.zoom = 12
+        self.widget.pins.add(toga.MapPin((-31.9602, 115.8325), title="Kings Park"))
+        await self.redraw("Map provider unavailable drops queued actions")
+        state = await self.map_surface_state()
+
+        assert state["status"] == "provider-unavailable"
+        assert state["providerUnavailable"]
+        assert state["pinCount"] == 0
+        assert state["pendingActionCount"] == 0
 
     async def assert_webview2_initialization_failure(self):
         executed_javascript = []

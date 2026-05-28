@@ -1,27 +1,43 @@
 import asyncio
 import html
 import json
-from weakref import ref
 
 from travertino.size import at_least
-from win32more.Microsoft.UI.Xaml.Controls import WebView2
-from win32more.Windows.Foundation import AsyncStatus
-from win32more.Windows.UI import Color
 
 import toga
 from toga.handlers import WeakrefCallable
 
-from .base import Widget
+from ._webview import WebView2Widget
 
 LEAFLET_VERSION = "1.9.4"
 LEAFLET_BASE_URL = f"https://unpkg.com/leaflet@{LEAFLET_VERSION}/dist"
+LEAFLET_SCRIPT_URL = f"{LEAFLET_BASE_URL}/leaflet.js"
+LEAFLET_STYLESHEET_URL = f"{LEAFLET_BASE_URL}/leaflet.css"
 MAP_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+MAP_ATTRIBUTION = "&copy; OpenStreetMap contributors"
+MAP_PROVIDER_LOAD_TIMEOUT_MS = 15000
 
-MAPVIEW_HTML_CONTENT = f"""<!DOCTYPE html>
+
+MAP_PROVIDER = {
+    "leafletVersion": LEAFLET_VERSION,
+    "leafletScript": LEAFLET_SCRIPT_URL,
+    "leafletStylesheet": LEAFLET_STYLESHEET_URL,
+    "tileUrl": MAP_TILE_URL,
+    "attribution": MAP_ATTRIBUTION,
+    "providerLoadTimeout": MAP_PROVIDER_LOAD_TIMEOUT_MS,
+}
+
+
+def mapview_html_content():
+    stylesheet_url = html.escape(LEAFLET_STYLESHEET_URL, quote=True)
+    script_url = html.escape(LEAFLET_SCRIPT_URL, quote=True)
+    provider_payload = json.dumps(MAP_PROVIDER)
+
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="{LEAFLET_BASE_URL}/leaflet.css">
+    <link rel="stylesheet" href="{stylesheet_url}">
     <style>
         html, body, #map {{
             width: 100%;
@@ -33,26 +49,35 @@ MAPVIEW_HTML_CONTENT = f"""<!DOCTYPE html>
 <body>
     <div id="map"></div>
     <script>
-        const togaMapProvider = {{
-            leafletVersion: {json.dumps(LEAFLET_VERSION)},
-            leafletScript: {json.dumps(f"{LEAFLET_BASE_URL}/leaflet.js")},
-            leafletStylesheet: {json.dumps(f"{LEAFLET_BASE_URL}/leaflet.css")},
-            tileUrl: {json.dumps(MAP_TILE_URL)},
-            attribution: "&copy; OpenStreetMap contributors",
-        }};
+        const togaMapProvider = {provider_payload};
         const mapElement = document.getElementById("map");
         const pins = {{}};
         const pendingActions = [];
         let map = null;
         let tileLayer = null;
+        let providerUnavailable = false;
+        let providerLoadTimer = null;
         let currentLocation = [-31.9559, 115.8606];
         let currentZoom = 11;
 
         window.togaMapProvider = togaMapProvider;
         mapElement.dataset.mapStatus = "loading";
 
+        if (togaMapProvider.providerLoadTimeout > 0) {{
+            providerLoadTimer = window.setTimeout(
+                markProviderUnavailable,
+                togaMapProvider.providerLoadTimeout
+            );
+        }}
+
         function markProviderUnavailable() {{
+            if (providerLoadTimer) {{
+                window.clearTimeout(providerLoadTimer);
+                providerLoadTimer = null;
+            }}
             if (!map) {{
+                providerUnavailable = true;
+                pendingActions.length = 0;
                 mapElement.dataset.mapStatus = "provider-unavailable";
             }}
         }}
@@ -60,12 +85,19 @@ MAPVIEW_HTML_CONTENT = f"""<!DOCTYPE html>
         function withMap(action) {{
             if (map) {{
                 action();
-            }} else {{
+            }} else if (!providerUnavailable) {{
                 pendingActions.push(action);
             }}
         }}
 
         function initializeMap() {{
+            if (providerUnavailable) {{
+                return;
+            }}
+            if (providerLoadTimer) {{
+                window.clearTimeout(providerLoadTimer);
+                providerLoadTimer = null;
+            }}
             if (typeof L === "undefined") {{
                 markProviderUnavailable();
                 return;
@@ -121,7 +153,7 @@ MAPVIEW_HTML_CONTENT = f"""<!DOCTYPE html>
         }}
     </script>
     <script
-        src="{LEAFLET_BASE_URL}/leaflet.js"
+        src="{script_url}"
         onload="initializeMap()"
         onerror="markProviderUnavailable()"
     ></script>
@@ -134,10 +166,6 @@ def pin_id(pin):
     return hex(id(pin))
 
 
-def latlng(location):
-    return f"[{location.lat}, {location.lng}]"
-
-
 def popup(pin):
     title = html.escape(str(pin.title))
     if pin.subtitle:
@@ -145,59 +173,32 @@ def popup(pin):
     return f"<b>{title}</b>"
 
 
-class MapView(Widget):
+class MapView(WebView2Widget):
     SUPPORTS_ON_SELECT = True
 
     def create(self):
-        self.native = WebView2()
-        self.native.DefaultBackgroundColor = Color(A=0, R=0, G=0, B=0)
+        self._create_webview2()
         self.native.IsTabStop = True
         self.native.NavigationCompleted += WeakrefCallable(
             self.native_event_navigation_completed
         )
 
         self.backlog = []
-        self._initialization_action = None
-        self.corewebview2_available = None
         self._location = toga.LatLng(-31.9559, 115.8606)
         self._zoom = 11
         self._pins = set()
         self._pin_lookup = {}
-        self._webview2_initialization_error = None
+        self._start_webview2()
 
-        self_ref = ref(self)
-
-        def initialization_completed(async_info, async_status):
-            if impl := self_ref():
-                impl._initialization_action = None
-                impl._initialize_core_webview2(async_info, async_status)
-
-        self._initialization_action = self.native.EnsureCoreWebView2Async()
-        self._initialization_action.Completed = initialization_completed
-
-    def _initialize_core_webview2(self, async_info, async_status):
-        if async_status != AsyncStatus.Completed:  # pragma: nocover
-            self._handle_webview2_initialization_failure(async_status)
-            return
-
-        try:
-            async_info.GetResults()
-        except Exception as exc:  # pragma: nocover
-            self._handle_webview2_initialization_failure(exc)
-            return
-
-        self.corewebview2_available = True
+    def _webview2_ready(self):
         self.native.CoreWebView2.Settings.IsWebMessageEnabled = True
         self.native.CoreWebView2.WebMessageReceived += WeakrefCallable(
             self.native_event_web_message_received
         )
-        self.native.NavigateToString(MAPVIEW_HTML_CONTENT)
+        self.native.NavigateToString(mapview_html_content())
 
-    def _handle_webview2_initialization_failure(self, error):
-        self.corewebview2_available = False
+    def _webview2_failed(self):
         self.backlog = None
-        self._webview2_initialization_error = str(error)
-        print(f"MapView WebView2 initialization failed: {error}")
 
     def native_event_navigation_completed(self, sender, args):
         if self.backlog is not None:
@@ -218,8 +219,8 @@ class MapView(Widget):
         async def execute():
             try:
                 await self.native.ExecuteScriptAsync(javascript)
-            except Exception as exc:  # pragma: nocover
-                print(f"MapView JavaScript failed: {exc}")
+            except Exception:  # pragma: nocover
+                pass
 
         asyncio.create_task(execute())
 

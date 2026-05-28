@@ -183,6 +183,14 @@ async def test_map_surface(widget, probe):
     )
 
 
+async def test_provider_unavailable(widget, probe):
+    """The map surface handles a provider that doesn't load."""
+    if not hasattr(probe, "assert_provider_unavailable_surface"):
+        pytest.skip("Map provider failure simulation not supported")
+
+    await probe.assert_provider_unavailable_surface()
+
+
 async def test_webview2_initialization_failure(widget, probe):
     """WebView2 initialization failures are handled safely."""
     if not hasattr(probe, "assert_webview2_initialization_failure"):

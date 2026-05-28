@@ -87,7 +87,7 @@ class Command:
     def set_enabled(self, value):
         if self.native:
             for widget in self.native:
-                widget.IsEnabled = value
+                widget.IsEnabled = self.interface.enabled
 
     def create_menu_item(self, NativeClass):
         item = NativeClass()

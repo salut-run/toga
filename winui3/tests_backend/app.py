@@ -1,11 +1,21 @@
 from pathlib import Path
 
 import pytest
+from win32more import ComError
+from win32more.Microsoft.UI.Xaml.Controls import (
+    MenuBarItem,
+    MenuFlyoutItem,
+    MenuFlyoutSeparator,
+    MenuFlyoutSubItem,
+)
+
+from toga.command import Separator
 
 from .probe import BaseProbe
 
 
 class AppProbe(BaseProbe):
+    formal_name = "Toga Testbed (WinUI 3)"
     supports_key = False
     supports_key_mod3 = False
     supports_current_window_assignment = True
@@ -58,19 +68,90 @@ class AppProbe(BaseProbe):
         pytest.skip("WinUI 3 about dialog is not implemented yet.")
 
     def activate_menu_visit_homepage(self):
-        pytest.skip("WinUI 3 menu probing is not implemented yet.")
+        self._activate_menu_item(["Help", "Visit homepage"])
 
     def assert_dialog_in_focus(self, dialog):
         pytest.skip("WinUI 3 dialog probing is not implemented yet.")
 
     def assert_menu_item(self, path, *, enabled=True):
-        pytest.skip("WinUI 3 menu probing is not implemented yet.")
+        item = self._menu_item(path)
+        native = (
+            self._as(item, MenuFlyoutItem)
+            or self._as(item, MenuFlyoutSubItem)
+            or self._as(item, MenuBarItem)
+        )
+        assert native.IsEnabled == enabled
 
     def assert_menu_order(self, path, expected):
-        pytest.skip("WinUI 3 menu probing is not implemented yet.")
+        actual = [self._menu_item_label(item) for item in self._menu_items(path)]
+        assert actual == expected
 
     def assert_system_menus(self):
-        pytest.skip("WinUI 3 menu probing is not implemented yet.")
+        self.assert_menu_item(["File", "New Example Document"], enabled=True)
+        self.assert_menu_item(["File", "New Read-only Document"], enabled=True)
+        self.assert_menu_item(["File", "Open..."], enabled=True)
+        self.assert_menu_item(["File", "Save"], enabled=True)
+        self.assert_menu_item(["File", "Save As..."], enabled=True)
+        self.assert_menu_item(["File", "Save All"], enabled=True)
+        self.assert_menu_item(["File", "Preferences"], enabled=False)
+        self.assert_menu_item(["File", "Exit"], enabled=True)
+
+        self.assert_menu_item(["Help", "Visit homepage"], enabled=True)
+        self.assert_menu_item(["Help", "About Toga Testbed (WinUI 3)"], enabled=True)
+
+    def _as(self, item, native_cls):
+        try:
+            return item.as_(native_cls)
+        except (ComError, OSError):
+            return None
+
+    def _native_menu_items(self, native):
+        native = (
+            native
+            if hasattr(native, "Items")
+            else self._as(native, MenuBarItem) or self._as(native, MenuFlyoutSubItem)
+        )
+        return [native.Items.GetAt(index) for index in range(len(native.Items))]
+
+    def _menu_item_label(self, item):
+        if self._as(item, MenuFlyoutSeparator) is not None:
+            return "---"
+        if native := self._as(item, MenuBarItem):
+            return native.Title
+        if native := self._as(item, MenuFlyoutSubItem):
+            return native.Text
+        if native := self._as(item, MenuFlyoutItem):
+            return native.Text
+
+        raise AssertionError(f"Unknown WinUI menu item type: {item!r}")
+
+    def _menu_item(self, path):
+        item = self.main_window._impl.menu_native
+        for index, label in enumerate(path):
+            children = self._native_menu_items(item)
+            child_labels = [self._menu_item_label(child) for child in children]
+            try:
+                item = children[child_labels.index(label)]
+            except ValueError:
+                raise AssertionError(
+                    f"no item named {path[: index + 1]}; options are {child_labels}"
+                ) from None
+
+        return item
+
+    def _menu_items(self, path):
+        return self._native_menu_items(self._menu_item(path))
+
+    def _activate_menu_item(self, path):
+        item = self._menu_item(path).as_(MenuFlyoutItem)
+        for cmd in self.app.commands:
+            if isinstance(cmd, Separator):
+                continue
+            if item in cmd._impl.native:
+                cmd.action()
+                return
+
+        raise AssertionError(f"no command associated with {' > '.join(path)}")
 
     def activate_menu_close_window(self):
         pytest.xfail("WinUI 3 window management menu is not implemented yet.")

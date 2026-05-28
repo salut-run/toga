@@ -1,4 +1,4 @@
-from ctypes import sizeof
+from ctypes import create_unicode_buffer, sizeof
 from pathlib import Path
 
 import pytest
@@ -21,6 +21,14 @@ from win32more.Windows.Win32.UI.Input.KeyboardAndMouse import (
     VK_MENU,
     VK_SHIFT,
     SendInput,
+)
+from win32more.Windows.Win32.UI.WindowsAndMessaging import (
+    MF_BYPOSITION,
+    MF_SEPARATOR,
+    GetMenuItemCount,
+    GetMenuState,
+    GetMenuStringW,
+    GetSubMenu,
 )
 
 from toga.command import Separator
@@ -281,6 +289,41 @@ class AppProbe(BaseProbe, DialogsMixin):
             }.get(item["text"], item["text"])
             for item in status_icon._impl.menu
         ]
+
+    def _status_menu_label(self, text):
+        return {
+            f"About {self.formal_name}": "**ABOUT**",
+            "Exit": "**EXIT**",
+        }.get(text, text)
+
+    def _native_status_menu_items(self, native_menu):
+        if not native_menu:
+            return None
+
+        items = []
+        for index in range(GetMenuItemCount(native_menu)):
+            state = GetMenuState(native_menu, index, MF_BYPOSITION)
+            if state & MF_SEPARATOR:
+                items.append("---")
+                continue
+
+            label = create_unicode_buffer(256)
+            GetMenuStringW(native_menu, index, label, len(label), MF_BYPOSITION)
+
+            if submenu := GetSubMenu(native_menu, index):
+                items.append(
+                    {
+                        "text": self._status_menu_label(label.value),
+                        "children": self._native_status_menu_items(submenu),
+                    }
+                )
+            else:
+                items.append(self._status_menu_label(label.value))
+
+        return items
+
+    def native_status_menu_items(self, status_icon):
+        return self._native_status_menu_items(status_icon._impl._menu)
 
     def activate_status_icon_button(self, item_id):
         self.app.status_icons[item_id]._impl._handle_status_message(Shell.NIN_SELECT)

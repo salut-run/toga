@@ -27,15 +27,37 @@ async def test_add_remove(app, app_probe):
         "**ABOUT**",
         "**EXIT**",
     ]
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(app.status1) == [
+            "Action 1",
+            {
+                "text": "Sub Menu",
+                "children": [
+                    "Action 3",
+                    "Action 4",
+                ],
+            },
+            "Action 2",
+            "---",
+            "**ABOUT**",
+            "**EXIT**",
+        ]
 
     assert app_probe.has_status_icon(app.status2)
     assert app_probe.status_menu_items(app.status2) == [
         "Action 5",
         "Action 6",
     ]
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(app.status2) == [
+            "Action 5",
+            "Action 6",
+        ]
 
     assert app_probe.has_status_icon(app.status_button)
     assert app_probe.status_menu_items(app.status_button) is None
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(app.status_button) is None
 
     # Create a new menu status item
     new_status_icon = toga.MenuStatusIcon(text="New Item")
@@ -54,6 +76,8 @@ async def test_add_remove(app, app_probe):
     await app_probe.redraw("Status icon added")
     assert app_probe.has_status_icon(new_status_icon)
     assert app_probe.status_menu_items(new_status_icon) == []
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(new_status_icon) == []
 
     # Add the command to the status command set.
     app.status_icons.commands.add(new_cmd1)
@@ -62,6 +86,10 @@ async def test_add_remove(app, app_probe):
     assert app_probe.status_menu_items(new_status_icon) == [
         "New Action 1",
     ]
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(new_status_icon) == [
+            "New Action 1",
+        ]
 
     # A second command
     new_cmd2 = toga.Command(
@@ -78,6 +106,11 @@ async def test_add_remove(app, app_probe):
         "New Action 2",
         "New Action 1",
     ]
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(new_status_icon) == [
+            "New Action 2",
+            "New Action 1",
+        ]
 
     # Remove the first command
     app.status_icons.commands.remove(new_cmd1)
@@ -86,12 +119,18 @@ async def test_add_remove(app, app_probe):
     assert app_probe.status_menu_items(new_status_icon) == [
         "New Action 2",
     ]
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(new_status_icon) == [
+            "New Action 2",
+        ]
 
     # Remove the second command
     app.status_icons.commands.remove(new_cmd2)
     await app_probe.redraw("Second command removed")
     assert app_probe.has_status_icon(new_status_icon)
     assert app_probe.status_menu_items(new_status_icon) == []
+    if hasattr(app_probe, "native_status_menu_items"):
+        assert app_probe.native_status_menu_items(new_status_icon) == []
 
     # Remove the extra status icon
     app.status_icons.remove(new_status_icon)

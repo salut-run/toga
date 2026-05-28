@@ -76,8 +76,11 @@ class StatusIcon:
         self._notify_data = None
 
     def has_native_icon(self):
+        return self.native_icon_rect() is not None
+
+    def native_icon_rect(self):
         if not self.native:
-            return False
+            return None
 
         identifier = Shell.NOTIFYICONIDENTIFIER()
         identifier.cbSize = sizeof(Shell.NOTIFYICONIDENTIFIER)
@@ -85,7 +88,9 @@ class StatusIcon:
         identifier.uID = self._id
 
         rect = RECT()
-        return Shell.Shell_NotifyIconGetRect(byref(identifier), byref(rect)) == 0
+        if Shell.Shell_NotifyIconGetRect(byref(identifier), byref(rect)) == 0:
+            return rect
+        return None
 
     @property
     def _native_icon(self):

@@ -173,14 +173,23 @@ class AppProbe(BaseProbe, DialogsMixin):
 
         raise AssertionError(f"no command associated with {' > '.join(path)}")
 
+    def _activate_native_menu_item(self, path):
+        item = self._menu_item(path).as_(MenuFlyoutItem)
+        for native_item, action in self.main_window._impl.window_menu_actions:
+            if item == native_item:
+                action()
+                return
+
+        raise AssertionError(f"no native action associated with {' > '.join(path)}")
+
     def activate_menu_close_window(self):
-        pytest.xfail("WinUI 3 window management menu is not implemented yet.")
+        self._activate_native_menu_item(["File", "Close"])
 
     def activate_menu_close_all_windows(self):
-        pytest.xfail("WinUI 3 window management menu is not implemented yet.")
+        self._activate_native_menu_item(["File", "Close All"])
 
     def activate_menu_minimize(self):
-        pytest.xfail("WinUI 3 window management menu is not implemented yet.")
+        self._activate_native_menu_item(["Window", "Minimize"])
 
     def keystroke(self, combination):
         key, modifiers = toga_to_winui_key(combination)

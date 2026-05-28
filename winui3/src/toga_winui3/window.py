@@ -40,7 +40,7 @@ from win32more.Windows.Foundation.Collections import IVector
 from win32more.Windows.Graphics import PointInt32, SizeInt32
 
 from toga import App
-from toga.command import Separator
+from toga.command import Group, Separator
 from toga.constants import WindowState
 from toga.handlers import WeakrefCallable
 from toga.types import Position, Size
@@ -491,6 +491,7 @@ class MainWindow(Window):
         super().create()
         self.toolbar_native = None
         self.toolbar_commands = []
+        self.window_menu_actions = []
 
     def _set_window_chrome_visible(self, visible):
         visibility = Visibility.Visible if visible else Visibility.Collapsed
@@ -551,6 +552,7 @@ class MainWindow(Window):
         self.menu_native.VerticalAlignment = VerticalAlignment.Top
         Grid.SetRow(self.menu_native, 0)
         Grid.SetColumn(self.menu_native, 0)
+        self.window_menu_actions = []
 
         group_cache = {None: self.menu_native}
 
@@ -564,7 +566,61 @@ class MainWindow(Window):
 
             submenu.Items.Append(item)
 
+        self._create_window_management_menus(group_cache)
+
         self.content_native.Children.Append(self.menu_native)
+
+    def _add_window_menu_item(self, submenu, text, action, event_handler):
+        item = MenuFlyoutItem()
+        item.Text = text
+        item.add_Click(WeakrefCallable(event_handler))
+        submenu.Items.Append(item)
+        self.window_menu_actions.append((item, action))
+
+    def _create_window_management_menus(self, group_cache):
+        file_menu = self._submenu(Group.FILE, group_cache)
+        file_menu.Items.Append(MenuFlyoutSeparator())
+        self._add_window_menu_item(
+            file_menu,
+            "Close",
+            self.close_current_window,
+            self.native_event_close_current_window,
+        )
+        self._add_window_menu_item(
+            file_menu,
+            "Close All",
+            self.close_all_windows,
+            self.native_event_close_all_windows,
+        )
+
+        window_menu = self._submenu(Group.WINDOW, group_cache)
+        self._add_window_menu_item(
+            window_menu,
+            "Minimize",
+            self.minimize_current_window,
+            self.native_event_minimize_current_window,
+        )
+
+    def close_current_window(self):
+        if window := self.interface.app.current_window:
+            window.close()
+
+    def close_all_windows(self):
+        for window in list(self.interface.app.windows):
+            window.close()
+
+    def minimize_current_window(self):
+        if window := self.interface.app.current_window:
+            window.state = WindowState.MINIMIZED
+
+    def native_event_close_current_window(self, sender, args):
+        self.close_current_window()
+
+    def native_event_close_all_windows(self, sender, args):
+        self.close_all_windows()
+
+    def native_event_minimize_current_window(self, sender, args):
+        self.minimize_current_window()
 
     def create_toolbar(self):
         if self.interface.toolbar:

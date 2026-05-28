@@ -1,3 +1,4 @@
+from ctypes import sizeof
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,18 @@ from win32more.Microsoft.UI.Xaml.Controls import (
     MenuFlyoutItem,
     MenuFlyoutSeparator,
     MenuFlyoutSubItem,
+)
+from win32more.Windows.System import VirtualKeyModifiers
+from win32more.Windows.Win32.UI.Input.KeyboardAndMouse import (
+    INPUT,
+    INPUT_KEYBOARD,
+    KEYBDINPUT,
+    KEYEVENTF_KEYUP,
+    VK_CONTROL,
+    VK_LWIN,
+    VK_MENU,
+    VK_SHIFT,
+    SendInput,
 )
 
 from toga.command import Separator
@@ -172,6 +185,54 @@ class AppProbe(BaseProbe, DialogsMixin):
                 return
 
         raise AssertionError(f"no command associated with {' > '.join(path)}")
+
+    def _key_value(self, value):
+        return value.value if hasattr(value, "value") else value
+
+    def _keyboard_input(self, key, flags=0):
+        native_input = INPUT()
+        native_input.type = INPUT_KEYBOARD
+        native_input.ki = KEYBDINPUT(self._key_value(key), 0, flags, 0, 0)
+        return native_input
+
+    def _send_keyboard_inputs(self, inputs):
+        INPUT_ARRAY = INPUT * len(inputs)
+        native_inputs = INPUT_ARRAY(*inputs)
+        result = SendInput(len(native_inputs), native_inputs, sizeof(INPUT))
+        if result != len(native_inputs):
+            raise RuntimeError(
+                f"SendInput sent {result} of {len(native_inputs)} keyboard inputs"
+            )
+
+    def activate_menu_shortcut(self, path):
+        item = self._menu_item(path).as_(MenuFlyoutItem)
+        if len(item.KeyboardAccelerators) != 1:
+            raise AssertionError(f"expected one keyboard accelerator for {path!r}")
+
+        accelerator = item.KeyboardAccelerators.GetAt(0)
+        modifiers = self._key_value(accelerator.Modifiers)
+        modifier_keys = []
+        for modifier, key in [
+            (VirtualKeyModifiers.Control, VK_CONTROL),
+            (VirtualKeyModifiers.Menu, VK_MENU),
+            (VirtualKeyModifiers.Shift, VK_SHIFT),
+            (VirtualKeyModifiers.Windows, VK_LWIN),
+        ]:
+            if modifiers & self._key_value(modifier):
+                modifier_keys.append(key)
+
+        self.main_window._impl.native.Activate()
+        self._send_keyboard_inputs(
+            [
+                *[self._keyboard_input(key) for key in modifier_keys],
+                self._keyboard_input(accelerator.Key),
+                self._keyboard_input(accelerator.Key, KEYEVENTF_KEYUP),
+                *[
+                    self._keyboard_input(key, KEYEVENTF_KEYUP)
+                    for key in reversed(modifier_keys)
+                ],
+            ]
+        )
 
     def _activate_native_menu_item(self, path):
         item = self._menu_item(path).as_(MenuFlyoutItem)

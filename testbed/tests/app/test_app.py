@@ -235,6 +235,28 @@ async def test_menu_items(app, app_probe):
     )
 
 
+async def test_menu_shortcut_invokes_command(app, app_probe):
+    """Menu item keyboard shortcuts can invoke their commands."""
+    if not hasattr(app_probe, "activate_menu_shortcut"):
+        return
+
+    app.cmd_action.reset_mock()
+    app_probe.activate_menu_shortcut(["Other", "Full command"])
+    await app_probe.redraw("Menu shortcut invoked")
+    app.cmd_action.assert_called_once_with(app.cmd1)
+
+    app.cmd1.enabled = False
+    try:
+        await app_probe.redraw("Menu shortcut disabled")
+        app.cmd_action.reset_mock()
+        app_probe.activate_menu_shortcut(["Other", "Full command"])
+        await app_probe.redraw("Disabled menu shortcut ignored")
+        app.cmd_action.assert_not_called()
+    finally:
+        app.cmd1.enabled = True
+        await app_probe.redraw("Menu shortcut re-enabled")
+
+
 async def test_beep(app, app_probe):
     """The machine can go Bing!"""
     # This isn't a very good test. It ensures coverage, which verifies that the method

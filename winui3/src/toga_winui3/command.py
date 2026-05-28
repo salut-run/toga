@@ -1,6 +1,11 @@
 import sys
 
+from win32more.Microsoft.UI.Xaml.Input import KeyboardAccelerator
+
 from toga import Command as StandardCommand, Group, Key
+from toga.handlers import WeakrefCallable
+
+from .keys import toga_to_winui_key, toga_to_winui_shortcut
 
 
 class Command:
@@ -84,10 +89,18 @@ class Command:
     def native_event_Click(self, sender, args):
         return self.interface.action()
 
+    def native_event_AcceleratorInvoked(self, sender, args):
+        if self.interface.enabled:
+            self.interface.action()
+            args.Handled = True
+
     def set_enabled(self, value):
         if self.native:
             for widget in self.native:
                 widget.IsEnabled = self.interface.enabled
+                for index in range(len(widget.KeyboardAccelerators)):
+                    accelerator = widget.KeyboardAccelerators.GetAt(index)
+                    accelerator.IsEnabled = self.interface.enabled
 
     def create_menu_item(self, NativeClass):
         item = NativeClass()
@@ -95,7 +108,22 @@ class Command:
         item.add_Click(self.native_event_Click)
 
         if self.interface.shortcut is not None:
-            self.interface.factory.not_implemented("Command shortcuts")
+            try:
+                key, modifiers = toga_to_winui_key(self.interface.shortcut)
+            except ValueError:
+                pass
+            else:
+                accelerator = KeyboardAccelerator()
+                accelerator.Key = key
+                accelerator.Modifiers = modifiers
+                accelerator.IsEnabled = self.interface.enabled
+                accelerator.add_Invoked(
+                    WeakrefCallable(self.native_event_AcceleratorInvoked)
+                )
+                item.KeyboardAccelerators.Append(accelerator)
+                item.KeyboardAcceleratorTextOverride = toga_to_winui_shortcut(
+                    self.interface.shortcut
+                )
 
         item.IsEnabled = self.interface.enabled
 

@@ -10,6 +10,7 @@ from win32more.Microsoft.UI.Xaml.Controls import (
 )
 
 from toga.command import Separator
+from toga_winui3.keys import toga_to_winui_key, winui_to_toga_key
 
 from .dialogs import DialogsMixin
 from .probe import BaseProbe
@@ -17,8 +18,8 @@ from .probe import BaseProbe
 
 class AppProbe(BaseProbe, DialogsMixin):
     formal_name = "Toga Testbed (WinUI 3)"
-    supports_key = False
-    supports_key_mod3 = False
+    supports_key = True
+    supports_key_mod3 = True
     supports_current_window_assignment = True
     supports_dark_mode = True
     edit_menu_noop_enabled = False
@@ -87,6 +88,19 @@ class AppProbe(BaseProbe, DialogsMixin):
             or self._as(item, MenuBarItem)
         )
         assert native.IsEnabled == enabled
+
+        if menu_item := self._as(item, MenuFlyoutItem):
+            try:
+                shortcut = {
+                    ("Other", "Full command"): "Ctrl+1",
+                    ("Other", "Submenu1", "Disabled"): "",
+                    ("Commands", "No Tooltip"): "Ctrl+Down",
+                    ("Commands", "Sectioned"): "Ctrl+Space",
+                }[tuple(path)]
+            except KeyError:
+                pass
+            else:
+                assert menu_item.KeyboardAcceleratorTextOverride == shortcut
 
     def assert_menu_order(self, path, expected):
         actual = [self._menu_item_label(item) for item in self._menu_items(path)]
@@ -169,7 +183,8 @@ class AppProbe(BaseProbe, DialogsMixin):
         pytest.xfail("WinUI 3 window management menu is not implemented yet.")
 
     def keystroke(self, combination):
-        pytest.skip("WinUI 3 keyboard probing is not implemented yet.")
+        key, modifiers = toga_to_winui_key(combination)
+        return winui_to_toga_key(key, modifiers)
 
     async def restore_standard_app(self):
         await self.redraw("Restore to standard app")

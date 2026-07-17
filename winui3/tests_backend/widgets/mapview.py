@@ -58,6 +58,9 @@ class MapViewProbe(SimpleProbe):
         )
 
     async def map_surface_state(self):
+        assert self.impl.corewebview2_available is True, (
+            self.impl._webview2_initialization_error
+        )
         return json.loads(
             await self.impl.native.ExecuteScriptAsync(
                 """
@@ -129,6 +132,9 @@ class MapViewProbe(SimpleProbe):
         return state
 
     async def assert_provider_unavailable_surface(self):
+        assert self.impl.corewebview2_available is True, (
+            self.impl._webview2_initialization_error
+        )
         self.impl.native.NavigateToString(unavailable_mapview_html())
 
         deadline = time() + 2

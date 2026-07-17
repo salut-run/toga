@@ -15,6 +15,7 @@ requires-python = ">= 3.10"
 license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
+    "LICENSE.WebView2",
 ]
 authors = [
     {name="Russell Keith-Magee", email="russell@keith-magee.com"},
@@ -110,6 +111,9 @@ Window = "toga_winui3.window:Window"
 
 [tool.setuptools_scm]
 root = ".."
+
+[tool.setuptools.package-data]
+toga_winui3 = ["libs/WebView2/runtimes/*/native/WebView2Loader.dll"]
 
 [tool.setuptools_dynamic_dependencies]
 dependencies = [

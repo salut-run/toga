@@ -184,6 +184,7 @@ class MapView(WebView2Widget):
         )
 
         self.backlog = []
+        self._map_navigation_pending = False
         self._location = toga.LatLng(-31.9559, 115.8606)
         self._zoom = 11
         self._pins = set()
@@ -195,13 +196,15 @@ class MapView(WebView2Widget):
         self.native.CoreWebView2.WebMessageReceived += WeakrefCallable(
             self.native_event_web_message_received
         )
+        self._map_navigation_pending = True
         self.native.NavigateToString(mapview_html_content())
 
     def _webview2_failed(self):
         self.backlog = None
 
     def native_event_navigation_completed(self, sender, args):
-        if self.backlog is not None:
+        if self._map_navigation_pending and self.backlog is not None:
+            self._map_navigation_pending = False
             backlog = self.backlog
             self.backlog = None
             for javascript in backlog:

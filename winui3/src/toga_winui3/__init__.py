@@ -1,8 +1,7 @@
 from ctypes import WinError
+from importlib.metadata import version
 from sys import getwindowsversion
 from warnings import warn
-
-from travertino import _package_version
 
 try:
     from win32more.Windows.Win32.Foundation import ERROR_ACCESS_DENIED, GetLastError
@@ -44,5 +43,4 @@ if not success:
         )
 
 
-# Travertino package_version.
-__version__ = _package_version(__file__, __name__)
+__version__ = version("toga-winui3")

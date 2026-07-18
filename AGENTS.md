@@ -162,7 +162,6 @@ changes/<issue_or_pr_number>.<kind>.md
 Agents operating in this repo MUST:
 
 - Load `.specify/memory/constitution.md` before any change that affects public API, backends, test coverage, or release tooling.
-- For any WinUI 3 backend work, read `winui3/PLAN.md` before planning or editing, keep it updated as new status or blockers are discovered, and update it again before the final response so compaction or handoff does not lose the current state.
 - Prefer editing existing files over creating new ones. Never proactively create new top-level files or directories.
 - Keep the `<!-- SPECKIT START --> ... <!-- SPECKIT END -->` block at the top of this file intact; SpecKit commands inject plan context there.
 - Never add `# pragma: no cover`, `# noqa`, or disable Ruff/codespell rules inline to pass CI; diagnose and fix the underlying issue.

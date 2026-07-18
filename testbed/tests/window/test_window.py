@@ -742,6 +742,57 @@ else:
         )
         assert second_window_probe.content_size == approx((300, 300), abs=2)
 
+    @pytest.mark.parametrize(
+        "second_window_class, second_window_kwargs",
+        [
+            (
+                toga.Window,
+                {
+                    "title": "Secondary Window",
+                    "position": (200, 150),
+                },
+            )
+        ],
+    )
+    async def test_attach_intrinsic_widget_tree_preserves_window_size(
+        second_window,
+        second_window_probe,
+    ):
+        """Attaching a fitting tree of intrinsic widgets does not resize a window."""
+        second_window.size = (700, 500)
+        host = toga.Box(style=Pack(flex=1))
+        second_window.content = host
+        await second_window_probe.wait_for_window(
+            "Empty content host has been attached"
+        )
+        initial_size = second_window.size
+
+        rows = [
+            toga.Box(
+                children=[
+                    toga.Label(f"Setting {index}", style=Pack(flex=1)),
+                    toga.Button("Action", style=Pack(width=120)),
+                ],
+                style=Pack(width=500, height=40),
+            )
+            for index in range(8)
+        ]
+        page = toga.Box(children=rows, style=Pack(direction=COLUMN))
+        host.add(page)
+        await second_window_probe.wait_for_window(
+            "Intrinsic widget tree has been attached"
+        )
+
+        assert_size(second_window, initial_size)
+
+        host.remove(page)
+        host.add(page)
+        await second_window_probe.wait_for_window(
+            "Intrinsic widget tree has been reattached"
+        )
+
+        assert_size(second_window, initial_size)
+
     # FULLSCREEN->MAXIMIZED known to be flaky on x86_64 - see #3897
     @pytest.mark.flaky(retries=5, delay=1)
     @pytest.mark.parametrize(

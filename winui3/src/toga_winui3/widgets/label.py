@@ -51,6 +51,7 @@ class Label(Widget):
         self._font = font
         self._apply_font(self.textblock)
 
+        self._constraints.invalidate()
         if self._container:
             self._constraints.refresh()
 

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from ctypes import byref
 from math import ceil, isfinite
 
@@ -52,6 +53,24 @@ class ContainerStagingArea(ContainerWidgets):
     def _native(self):
         return self._container._staging_panel
 
+    def __init__(self, container):
+        super().__init__(container)
+        self._batch_depth = 0
+        self._refresh_pending = False
+
+    @contextmanager
+    def batch(self):
+        """Defer root layout until an entire widget subtree has been staged."""
+        self._batch_depth += 1
+        try:
+            yield
+        finally:
+            self._batch_depth -= 1
+            if self._batch_depth == 0 and self._refresh_pending:
+                self._refresh_pending = False
+                if self._container._content:
+                    self._container._content.interface.refresh()
+
     def remove(self, widget):
         """Removes a widget and triggers a layout refresh when the widget list empties.
 
@@ -66,7 +85,10 @@ class ContainerStagingArea(ContainerWidgets):
 
         if non_empty_initial and empty_final:
             if self._container._content:
-                self._container._content.interface.refresh()
+                if self._batch_depth:
+                    self._refresh_pending = True
+                else:
+                    self._container._content.interface.refresh()
 
 
 class Container:

@@ -70,6 +70,7 @@ class Switch(Widget):
         self._apply_font(self.native_label)
         self.native_label.MinHeight = font._impl.native_size + 18
 
+        self._constraints.invalidate()
         if self._container:
             self._constraints.refresh()
 

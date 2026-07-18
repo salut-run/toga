@@ -14,6 +14,8 @@ from .base import Widget, WidgetStager
 
 
 class Button(Widget):
+    MIN_HEIGHT = 32
+
     def create(self):
         self.native = NativeButton()
         self._constraints = WidgetStager(self)
@@ -69,4 +71,4 @@ class Button(Widget):
 
     def rehint(self):
         self.interface.intrinsic.width = at_least(self._constraints.width)
-        self.interface.intrinsic.height = self._constraints.height
+        self.interface.intrinsic.height = max(self.MIN_HEIGHT, self._constraints.height)

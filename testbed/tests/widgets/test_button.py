@@ -40,6 +40,8 @@ test_cleanup = build_cleanup_test(
 async def test_text(widget, probe):
     "The text displayed on a button can be changed"
     initial_height = probe.height
+    if toga.backend == "toga_winui3":
+        assert initial_height >= 32
 
     for text in TEXTS:
         widget.text = text

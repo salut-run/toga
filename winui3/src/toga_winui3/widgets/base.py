@@ -79,8 +79,16 @@ class WidgetStager:
     def __init__(self, widget):
         self.width = 0
         self.height = 0
+        self.valid = False
         self._widget = widget
         self._widget_copy = None
+
+    def invalidate(self):
+        self.valid = False
+
+    def ensure(self):
+        if not self.valid:
+            self.refresh()
 
     def refresh(self):
         self._widget_copy = type(self._widget)(None)
@@ -91,6 +99,7 @@ class WidgetStager:
         desired_size = self._widget_copy.measure_unconstrained()
         self.width = desired_size.Width
         self.height = desired_size.Height
+        self.valid = True
 
         self._widget.rehint()
         self._widget.container.staging_area.remove(self._widget_copy)
@@ -131,17 +140,25 @@ class Widget(ABC):
 
     @container.setter
     def container(self, container):
-        if self._container:
-            self._container.widgets.remove(self)
-
-        self._container = container
         if container:
-            container.widgets.add(self)
-            if self._constraints:
-                self._constraints.refresh()
+            with container.staging_area.batch():
+                if self._container:
+                    self._container.widgets.remove(self)
 
-        for child in self.interface.children:
-            child._impl.container = container
+                self._container = container
+                container.widgets.add(self)
+                if self._constraints:
+                    self._constraints.ensure()
+
+                for child in self.interface.children:
+                    child._impl.container = container
+        else:
+            if self._container:
+                self._container.widgets.remove(self)
+
+            self._container = None
+            for child in self.interface.children:
+                child._impl.container = None
 
         self.rehint()
 
@@ -201,8 +218,10 @@ class Widget(ABC):
         if content := getattr(self, "content", None):
             self._apply_font(content)
 
-        if self._container and self._constraints:
-            self._constraints.refresh()
+        if self._constraints:
+            self._constraints.invalidate()
+            if self._container:
+                self._constraints.refresh()
 
     def set_hidden(self, hidden):
         self.native.Visibility = Visibility.Collapsed if hidden else Visibility.Visible
@@ -281,6 +300,7 @@ class Widget(ABC):
         self.content = creator()
         self.set_native_content(self.content)
 
+        self._constraints.invalidate()
         if self._container:
             self._constraints.refresh()
 

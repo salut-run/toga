@@ -1,0 +1,210 @@
+name: Publish Salut WinUI wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Toga revision containing the Salut WinUI backend
+        required: true
+        default: winui3-backend
+      version:
+        description: Exact PEP 440 version shared by all three wheels
+        required: true
+        default: 0.5.7.dev0+salut.35f731099
+      publish:
+        description: Publish the verified wheels to wheels.salut.run
+        required: true
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: salut-winui-wheels-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION: ${{ inputs.version }}
+  SALUT_TOGA_REVISION: ${{ inputs.revision }}
+  SALUT_TOGA_VERSION: ${{ inputs.version }}
+
+jobs:
+  build-shared:
+    name: Build shared Toga wheels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the WinUI revision
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Build Travertino and Toga Core
+        run: python -m pip wheel --no-deps --wheel-dir dist ./travertino ./core
+
+      - name: Verify shared wheel metadata
+        run: |
+          python - <<'PY'
+          import email
+          import os
+          import pathlib
+          import zipfile
+
+          version = os.environ["SALUT_TOGA_VERSION"]
+          wheels = sorted(pathlib.Path("dist").glob("*.whl"))
+          expected = {
+              f"toga_core-{version}-py3-none-any.whl",
+              f"travertino-{version}-py3-none-any.whl",
+          }
+          assert {wheel.name for wheel in wheels} == expected
+          metadata = {}
+          for wheel in wheels:
+              with zipfile.ZipFile(wheel) as archive:
+                  metadata_path = next(
+                      name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+                  )
+                  message = email.message_from_bytes(archive.read(metadata_path))
+              metadata[message["Name"]] = message
+              assert message["Version"] == version
+          core_requirements = {
+              requirement.replace(" ", "")
+              for requirement in metadata["toga-core"].get_all("Requires-Dist", [])
+          }
+          assert f"travertino=={version}" in core_requirements
+          PY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Salut-Toga-shared
+          path: dist/*.whl
+          if-no-files-found: error
+
+  build-winui3:
+    name: Build Toga WinUI 3 (${{ matrix.platform-tag }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform-tag: win_amd64
+            runtime: win-x64
+          - platform-tag: win_arm64
+            runtime: win-arm64
+    env:
+      SALUT_PLATFORM_TAG: ${{ matrix.platform-tag }}
+      SALUT_WEBVIEW_RUNTIME: ${{ matrix.runtime }}
+    steps:
+      - name: Check out the WinUI revision
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Configure the Windows wheel
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import shutil
+
+          package = pathlib.Path("winui3")
+          runtimes = package / "src/toga_winui3/libs/WebView2/runtimes"
+          keep_runtime = os.environ["SALUT_WEBVIEW_RUNTIME"]
+          for runtime in runtimes.iterdir():
+              if runtime.name != keep_runtime:
+                  shutil.rmtree(runtime)
+          with package.joinpath("pyproject.toml").open("a") as stream:
+              stream.write(
+                  "\n[tool.distutils.bdist_wheel]\n"
+                  f"plat-name = \"{os.environ['SALUT_PLATFORM_TAG']}\"\n"
+              )
+          PY
+
+      - name: Build Toga WinUI 3
+        run: python -m pip wheel --no-deps --wheel-dir dist ./winui3
+
+      - name: Verify WinUI wheel metadata and native payload
+        run: |
+          python - <<'PY'
+          import email
+          import os
+          import pathlib
+          import zipfile
+
+          version = os.environ["SALUT_TOGA_VERSION"]
+          platform_tag = os.environ["SALUT_PLATFORM_TAG"]
+          runtime = os.environ["SALUT_WEBVIEW_RUNTIME"]
+          wheels = list(pathlib.Path("dist").glob("*.whl"))
+          assert len(wheels) == 1
+          wheel = wheels[0]
+          assert wheel.name == f"toga_winui3-{version}-py3-none-{platform_tag}.whl"
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+              metadata_path = next(
+                  name for name in names if name.endswith(".dist-info/METADATA")
+              )
+              message = email.message_from_bytes(archive.read(metadata_path))
+          assert message["Version"] == version
+          requirements = {
+              requirement.replace(" ", "")
+              for requirement in message.get_all("Requires-Dist", [])
+          }
+          assert f"toga-core=={version}" in requirements
+          loaders = [name for name in names if name.endswith("WebView2Loader.dll")]
+          assert len(loaders) == 1
+          assert f"/runtimes/{runtime}/" in loaders[0]
+          PY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Salut-Toga-${{ matrix.platform-tag }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    name: Publish Salut Toga release
+    if: inputs.publish
+    needs: [build-shared, build-winui3]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create the immutable GitHub release and its tag.
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: Salut-Toga-*
+          merge-multiple: true
+          path: dist
+
+      - name: Require an unpublished immutable release
+        run: |
+          tag="salut-winui3-v${SALUT_TOGA_VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; refusing to replace it" >&2
+            exit 1
+          fi
+
+      - name: Create the public wheel release
+        run: |
+          tag="salut-winui3-v${SALUT_TOGA_VERSION}"
+          gh release create "$tag" dist/*.whl \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SALUT_TOGA_REVISION" \
+            --title "Salut Toga ${SALUT_TOGA_VERSION}" \
+            --notes "WinUI 3 wheels built for Salut from ${SALUT_TOGA_REVISION}." \
+            --prerelease

@@ -37,6 +37,9 @@ jobs:
 
   towncrier:
     name: Check towncrier
+    permissions:
+      contents: read
+      pull-requests: write # Required by BeeWare's reusable change-note workflow.
     uses: beeware/.github/.github/workflows/towncrier-run.yml@main
     with:
       tox-source: "--group tox-uv"

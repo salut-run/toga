@@ -12,7 +12,7 @@ on:
         required: true
         default: 0.5.7.dev0+salut.35f731099
       publish:
-        description: Publish the verified wheels to wheels.salut.run
+        description: Publish the verified wheels as a public Toga release
         required: true
         type: boolean
         default: false
@@ -191,7 +191,7 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Require an unpublished immutable release
+      - name: Require an unpublished release
         run: |
           tag="salut-winui3-v${SALUT_TOGA_VERSION}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

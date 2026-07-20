@@ -8,9 +8,9 @@ on:
         required: true
         default: winui3-backend
       version:
-        description: Exact PEP 440 version shared by all three wheels
+        description: Exact PEP 440 version shared by all five wheel files
         required: true
-        default: 0.5.7.dev0+salut.35f731099
+        default: 0.5.7.dev0+salut.35f731099.1
       publish:
         description: Publish the verified wheels as a public Toga release
         required: true
@@ -46,8 +46,8 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Build Travertino and Toga Core
-        run: python -m pip wheel --no-deps --wheel-dir dist ./travertino ./core
+      - name: Build Travertino, Toga Core, and Toga Dummy
+        run: python -m pip wheel --no-deps --wheel-dir dist ./travertino ./core ./dummy
 
       - name: Verify shared wheel metadata
         run: |
@@ -60,6 +60,7 @@ jobs:
           version = os.environ["SALUT_TOGA_VERSION"]
           wheels = sorted(pathlib.Path("dist").glob("*.whl"))
           expected = {
+              f"toga_dummy-{version}-py3-none-any.whl",
               f"toga_core-{version}-py3-none-any.whl",
               f"travertino-{version}-py3-none-any.whl",
           }
@@ -77,7 +78,12 @@ jobs:
               requirement.replace(" ", "")
               for requirement in metadata["toga-core"].get_all("Requires-Dist", [])
           }
+          dummy_requirements = {
+              requirement.replace(" ", "")
+              for requirement in metadata["toga-dummy"].get_all("Requires-Dist", [])
+          }
           assert f"travertino=={version}" in core_requirements
+          assert f"toga-core=={version}" in dummy_requirements
           PY
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -206,5 +212,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$SALUT_TOGA_REVISION" \
             --title "Salut Toga ${SALUT_TOGA_VERSION}" \
-            --notes "WinUI 3 wheels built for Salut from ${SALUT_TOGA_REVISION}." \
+            --notes "WinUI 3 and matching test-backend wheels built for Salut from ${SALUT_TOGA_REVISION}." \
             --prerelease

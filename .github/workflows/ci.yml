@@ -216,7 +216,7 @@ jobs:
       run: python -m pip install --group tox-uv
 
     - name: Get Packages
-      uses: actions/download-artifact@v8.0.1
+      uses: actions/download-artifact@v8.0.2
       with:
         pattern: "Packages-*"
         merge-multiple: true
@@ -269,7 +269,7 @@ jobs:
       run: python -m pip install --group tox-uv
 
     - name: Retrieve Coverage Data
-      uses: actions/download-artifact@v8.0.1
+      uses: actions/download-artifact@v8.0.2
       with:
         pattern: ${{ matrix.package }}-coverage-data-*
         path: ${{ matrix.package }}
@@ -305,7 +305,7 @@ jobs:
       run: python -m pip install --group tox-uv
 
     - name: Get Package
-      uses: actions/download-artifact@v8.0.1
+      uses: actions/download-artifact@v8.0.2
       with:
         pattern: "Packages-travertino"
         merge-multiple: true
@@ -634,7 +634,7 @@ jobs:
         python -m pip install git+https://github.com/beeware/briefcase.git
 
     - name: Get Packages
-      uses: actions/download-artifact@v8.0.1
+      uses: actions/download-artifact@v8.0.2
       with:
         pattern: "Packages-*"
         merge-multiple: true
@@ -713,7 +713,7 @@ jobs:
         python-version: "3.12"
 
     - name: Get Packages
-      uses: actions/download-artifact@v8.0.1
+      uses: actions/download-artifact@v8.0.2
       with:
         pattern: "Packages-positron"
         merge-multiple: true
